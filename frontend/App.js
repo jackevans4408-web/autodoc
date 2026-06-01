@@ -1,45 +1,43 @@
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image } from "react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
+import { supabase } from "./supabase";
+import LoginScreen from "./LoginScreen";
 
 export default function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [diagnosing, setDiagnosing] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+
+useEffect(() => {
+    setLoading(false);
+  }, []);
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      alert("Permission to access photos is required!");
-      return;
-    }
+    if (!permission.granted) { alert("Permission required!"); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.7,
       base64: true,
     });
-    if (!result.canceled) {
-      setSelectedImage(result.assets[0]);
-    }
+    if (!result.canceled) setSelectedImage(result.assets[0]);
   };
 
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      alert("Permission to use camera is required!");
-      return;
-    }
+    if (!permission.granted) { alert("Permission required!"); return; }
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       quality: 0.7,
       base64: true,
     });
-    if (!result.canceled) {
-      setSelectedImage(result.assets[0]);
-    }
+    if (!result.canceled) setSelectedImage(result.assets[0]);
   };
 
   const sendMessage = async () => {
@@ -49,7 +47,7 @@ export default function App() {
     setMessage("");
     setSelectedImage(null);
     setMessages(prev => [...prev, { role: "user", text: userMessage, image: userImage?.uri }]);
-    setLoading(true);
+    setDiagnosing(true);
 
     try {
       const body = { text: userMessage };
@@ -57,7 +55,6 @@ export default function App() {
         body.image_base64 = userImage.base64;
         body.image_type = "image/jpeg";
       }
-
       const response = await fetch("https://autodoc-production-1703.up.railway.app/diagnose", {
         method: "POST",
         headers: { "Accept": "application/json", "Content-Type": "application/json" },
@@ -68,15 +65,35 @@ export default function App() {
     } catch (error) {
       setMessages(prev => [...prev, { role: "bot", text: "Error: " + error.message }]);
     }
-    setLoading(false);
+    setDiagnosing(false);
   };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setMessages([]);
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color="#f5a623" />
+      </View>
+    );
+  }
+
+  if (!session) {
+    return <LoginScreen onLogin={(user) => setSession(user)} />;
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerText}>AutoDoc</Text>
-        <Text style={styles.subHeader}>AI Car Diagnostics</Text>
+        <TouchableOpacity onPress={signOut}>
+          <Text style={styles.signOut}>Sign Out</Text>
+        </TouchableOpacity>
       </View>
+
       <ScrollView style={styles.chatArea}>
         {messages.length === 0 && (
           <Text style={styles.placeholder}>Describe your car problem or upload a photo...</Text>
@@ -87,7 +104,7 @@ export default function App() {
             {msg.text ? <Text style={msg.role === "user" ? styles.userText : styles.botText}>{msg.text}</Text> : null}
           </View>
         ))}
-        {loading && <ActivityIndicator size="large" color="#f5a623" style={{ margin: 20 }} />}
+        {diagnosing && <ActivityIndicator size="large" color="#f5a623" style={{ margin: 20 }} />}
       </ScrollView>
 
       {selectedImage && (
@@ -101,10 +118,10 @@ export default function App() {
 
       <View style={styles.cameraRow}>
         <TouchableOpacity style={styles.cameraBtn} onPress={takePhoto}>
-          <Text style={styles.cameraBtnText}>📷 Camera</Text>
+          <Text style={styles.cameraBtnText}>Camera</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.cameraBtn} onPress={pickImage}>
-          <Text style={styles.cameraBtnText}>🖼 Gallery</Text>
+          <Text style={styles.cameraBtnText}>Gallery</Text>
         </TouchableOpacity>
       </View>
 
@@ -128,9 +145,9 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0e" },
-  header: { backgroundColor: "#161618", paddingTop: 60, paddingBottom: 20, alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
+  header: { backgroundColor: "#161618", paddingTop: 60, paddingBottom: 20, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
   headerText: { color: "#f5a623", fontSize: 28, fontWeight: "bold" },
-  subHeader: { color: "#888", fontSize: 14, marginTop: 4 },
+  signOut: { color: "#888", fontSize: 13 },
   chatArea: { flex: 1, padding: 16 },
   placeholder: { color: "#888", textAlign: "center", marginTop: 40, fontSize: 16 },
   bubble: { borderRadius: 12, padding: 12, marginBottom: 12, maxWidth: "85%" },
