@@ -2,7 +2,6 @@ import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image } from "react-native";
 import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
-import { supabase } from "./supabase";
 import LoginScreen from "./LoginScreen";
 
 export default function App() {
@@ -69,7 +68,7 @@ useEffect(() => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    setSession(null);
     setMessages([]);
   };
 

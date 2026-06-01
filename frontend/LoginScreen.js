@@ -1,8 +1,8 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { useState } from "react";
-import { supabase } from "./supabase";
+import { signIn, signUp } from "./supabase";
 
-export default function LoginScreen() {
+export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -10,16 +10,16 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
 
   const handleAuth = async () => {
+    console.log("signUp type:", typeof signUp);
+    console.log("signIn type:", typeof signIn);
     setLoading(true);
     setError("");
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        alert("Check your email to confirm your account!");
+      const result = isSignUp ? await signUp(email, password) : await signIn(email, password);
+      if (result.success) {
+        onLogin(result);
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        setError(result.error || "Something went wrong");
       }
     } catch (e) {
       setError(e.message);
@@ -33,12 +33,9 @@ export default function LoginScreen() {
         <Text style={styles.logo}>AutoDoc</Text>
         <Text style={styles.tagline}>AI Car Diagnostics</Text>
       </View>
-
       <View style={styles.form}>
         <Text style={styles.title}>{isSignUp ? "Create Account" : "Welcome Back"}</Text>
-        
         {error ? <Text style={styles.error}>{error}</Text> : null}
-
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -56,11 +53,9 @@ export default function LoginScreen() {
           onChangeText={setPassword}
           secureTextEntry
         />
-
         <TouchableOpacity style={styles.btn} onPress={handleAuth} disabled={loading}>
           {loading ? <ActivityIndicator color="#0d0d0e" /> : <Text style={styles.btnText}>{isSignUp ? "Sign Up" : "Sign In"}</Text>}
         </TouchableOpacity>
-
         <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
           <Text style={styles.switchText}>
             {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
