@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Activi
 import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
 import LoginScreen from "./LoginScreen";
+import CarProfileScreen from "./CarProfileScreen";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -11,6 +12,7 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [diagnosing, setDiagnosing] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [car, setCar] = useState(null);
 
 useEffect(() => {
     setLoading(false);
@@ -79,15 +81,20 @@ useEffect(() => {
       </View>
     );
   }
-
+   
   if (!session) {
     return <LoginScreen onLogin={(user) => setSession(user)} />;
+  }
+
+  if (!car) {
+    return <CarProfileScreen onSave={(carData) => setCar(carData)} />;
   }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerText}>AutoDoc</Text>
+        <Text style={styles.carInfo}>{car.year} {car.make} {car.model}</Text>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.signOut}>Sign Out</Text>
         </TouchableOpacity>
@@ -146,6 +153,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0e" },
   header: { backgroundColor: "#161618", paddingTop: 60, paddingBottom: 20, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
   headerText: { color: "#f5a623", fontSize: 28, fontWeight: "bold" },
+  carInfo: { color: "#f5a623", fontSize: 12, marginTop: 2 },
   signOut: { color: "#888", fontSize: 13 },
   chatArea: { flex: 1, padding: 16 },
   placeholder: { color: "#888", textAlign: "center", marginTop: 40, fontSize: 16 },
