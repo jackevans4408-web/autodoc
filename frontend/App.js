@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
 import LoginScreen from "./LoginScreen";
 import CarProfileScreen from "./CarProfileScreen";
+import * as SecureStore from "expo-secure-store";
+import * as LocalAuthentication from "expo-local-authentication";
 
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
@@ -38,9 +40,38 @@ export default function App() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [car, setCar] = useState(null);
 
-useEffect(() => {
-    setLoading(false);
+  useEffect(() => {
+    checkSavedLogin();
   }, []);
+
+  const checkSavedLogin = async () => {
+    try {
+      const savedSession = await SecureStore.getItemAsync("userSession");
+      const savedCar = await SecureStore.getItemAsync("userCar");
+
+      if (savedSession) {
+        const hasBiometrics = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+        if (hasBiometrics && isEnrolled) {
+          const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: "Sign in to AutoDoc",
+            fallbackLabel: "Use Password",
+          });
+          if (result.success) {
+            setSession(JSON.parse(savedSession));
+            if (savedCar) setCar(JSON.parse(savedCar));
+          }
+        } else {
+          setSession(JSON.parse(savedSession));
+          if (savedCar) setCar(JSON.parse(savedCar));
+        }
+      }
+    } catch (e) {
+      console.log("Auth error:", e);
+    }
+    setLoading(false);
+  };
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -94,7 +125,10 @@ useEffect(() => {
   };
 
   const signOut = async () => {
+    await SecureStore.deleteItemAsync("userSession");
+    await SecureStore.deleteItemAsync("userCar");
     setSession(null);
+    setCar(null);
     setMessages([]);
   };
 
@@ -105,13 +139,19 @@ useEffect(() => {
       </View>
     );
   }
-   
+
   if (!session) {
-    return <LoginScreen onLogin={(user) => setSession(user)} />;
+    return <LoginScreen onLogin={async (user) => {
+      await SecureStore.setItemAsync("userSession", JSON.stringify(user));
+      setSession(user);
+    }} />;
   }
 
   if (!car) {
-    return <CarProfileScreen onSave={(carData) => setCar(carData)} />;
+    return <CarProfileScreen onSave={async (carData) => {
+      await SecureStore.setItemAsync("userCar", JSON.stringify(carData));
+      setCar(carData);
+    }} />;
   }
 
   return (
