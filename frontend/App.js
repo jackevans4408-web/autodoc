@@ -5,6 +5,30 @@ import * as ImagePicker from "expo-image-picker";
 import LoginScreen from "./LoginScreen";
 import CarProfileScreen from "./CarProfileScreen";
 
+function FormattedDiagnosis({ text }) {
+  const lines = text.split('\n').filter(line => line.trim());
+  return (
+    <View>
+      {lines.map((line, i) => {
+        const isHeader = line.startsWith('##') || line.startsWith('**') && line.endsWith('**');
+        const isUrgent = line.toLowerCase().includes('critical') || line.toLowerCase().includes('urgent') || line.toLowerCase().includes('high');
+        const isCost = line.toLowerCase().includes('$') || line.toLowerCase().includes('cost') || line.toLowerCase().includes('price');
+        const cleaned = line.replace(/##\s*/g, '').replace(/\*\*/g, '').replace(/^-\s*/, '• ');
+        return (
+          <Text key={i} style={[
+            styles.botText,
+            isHeader && styles.diagHeader,
+            isUrgent && styles.diagUrgent,
+            isCost && styles.diagCost,
+          ]}>
+            {cleaned}
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -107,7 +131,13 @@ useEffect(() => {
         {messages.map((msg, i) => (
           <View key={i} style={[styles.bubble, msg.role === "user" ? styles.userBubble : styles.botBubble]}>
             {msg.image && <Image source={{ uri: msg.image }} style={styles.messageImage} />}
-            {msg.text ? <Text style={msg.role === "user" ? styles.userText : styles.botText}>{msg.text}</Text> : null}
+            {msg.text ? (
+              msg.role === "bot" ? (
+                <FormattedDiagnosis text={msg.text} />
+              ) : (
+                <Text style={styles.userText}>{msg.text}</Text>
+              )
+            ) : null}
           </View>
         ))}
         {diagnosing && <ActivityIndicator size="large" color="#f5a623" style={{ margin: 20 }} />}
@@ -173,4 +203,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, backgroundColor: "#1e1e21", color: "#e8e6e0", borderRadius: 8, padding: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33" },
   sendBtn: { backgroundColor: "#f5a623", borderRadius: 8, padding: 10, marginLeft: 8, justifyContent: "center" },
   sendText: { color: "#0d0d0e", fontWeight: "bold" },
+  diagHeader: { color: "#f5a623", fontWeight: "bold", fontSize: 15, marginTop: 8, marginBottom: 2 },
+  diagUrgent: { color: "#e05a5a", fontWeight: "600" },
+  diagCost: { color: "#4caf7d", fontWeight: "500" },
 });
