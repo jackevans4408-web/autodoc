@@ -1,5 +1,4 @@
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, KeyboardAvoidingView, Platform } from "react-native";
 import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
 import LoginScreen from "./LoginScreen";
@@ -7,6 +6,7 @@ import CarProfileScreen from "./CarProfileScreen";
 import MechanicQuoteScreen from "./MechanicQuoteScreen";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
@@ -267,6 +267,7 @@ export default function App() {
         />
         <TouchableOpacity style={styles.sendBtn} onPress={() => {
           if (!message.trim() && !selectedImage) return;
+          Keyboard.dismiss();
           setPendingMessage(message);
           setPendingImage(selectedImage);
           setShowVehicleSelector(true);
