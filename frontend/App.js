@@ -1,12 +1,12 @@
 import { StatusBar } from "expo-status-bar";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking } from "react-native";
 import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
 import LoginScreen from "./LoginScreen";
 import CarProfileScreen from "./CarProfileScreen";
+import MechanicQuoteScreen from "./MechanicQuoteScreen";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking } from "react-native";
-import MechanicQuoteScreen from "./MechanicQuoteScreen";
 
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
@@ -41,12 +41,15 @@ export default function App() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [car, setCar] = useState(null);
   const [showQuoteAnalyzer, setShowQuoteAnalyzer] = useState(false);
+  const [showVehicleSelector, setShowVehicleSelector] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState(null);
+  const [pendingImage, setPendingImage] = useState(null);
 
   useEffect(() => {
     checkSavedLogin();
   }, []);
 
-   const checkSavedLogin = async () => {
+  const checkSavedLogin = async () => {
     console.log("Checking saved login...");
     try {
       const savedSession = await SecureStore.getItemAsync("userSession");
@@ -101,24 +104,35 @@ export default function App() {
     if (!result.canceled) setSelectedImage(result.assets[0]);
   };
 
-  const sendMessage = async () => {
-    if (!message.trim() && !selectedImage) return;
-    const userMessage = message;
-    const userImage = selectedImage;
+  const findNearbyShops = () => {
+    Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me");
+  };
+
+  const sendMessage = async (overrideCar = null) => {
+    const userMessage = pendingMessage !== null ? pendingMessage : message;
+    const userImage = pendingImage !== null ? pendingImage : selectedImage;
+
+    if (!userMessage.trim() && !userImage) return;
+
     setMessage("");
     setSelectedImage(null);
+    setPendingMessage(null);
+    setPendingImage(null);
+    setShowVehicleSelector(false);
     setMessages(prev => [...prev, { role: "user", text: userMessage, image: userImage?.uri }]);
     setDiagnosing(true);
 
+    const activeCar = overrideCar || car;
+
     try {
-  console.log("Car object:", JSON.stringify(car));
-  const body = { 
-  text: userMessage,
-  car_year: car?.year,
-  car_make: car?.make,
-  car_model: car?.model
-  };
-  console.log("Sending car info:", car?.year, car?.make, car?.model);
+      console.log("Car object:", JSON.stringify(activeCar));
+      const body = {
+        text: userMessage,
+        car_year: activeCar?.year,
+        car_make: activeCar?.make,
+        car_model: activeCar?.model
+      };
+      console.log("Sending car info:", activeCar?.year, activeCar?.make, activeCar?.model);
       if (userImage?.base64) {
         body.image_base64 = userImage.base64;
         body.image_type = "image/jpeg";
@@ -129,20 +143,15 @@ export default function App() {
         body: JSON.stringify(body),
       });
       const data = await response.json();
-      setMessages(prev => [...prev, { 
-        role: "bot", 
+      setMessages(prev => [...prev, {
+        role: "bot",
         text: data.diagnosis,
-        videos: data.videos 
+        videos: data.videos
       }]);
-
     } catch (error) {
       setMessages(prev => [...prev, { role: "bot", text: "Error: " + error.message }]);
     }
     setDiagnosing(false);
-  };
-
-  const findNearbyShops = () => {
-    Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me");
   };
 
   const signOut = async () => {
@@ -168,15 +177,15 @@ export default function App() {
     }} />;
   }
 
-  if (showQuoteAnalyzer) {
-    return <MechanicQuoteScreen car={car} onBack={() => setShowQuoteAnalyzer(false)} />;
-  }
-  
   if (!car) {
     return <CarProfileScreen onSave={async (carData) => {
       await SecureStore.setItemAsync("userCar", JSON.stringify(carData));
       setCar(carData);
     }} />;
+  }
+
+  if (showQuoteAnalyzer) {
+    return <MechanicQuoteScreen car={car} onBack={() => setShowQuoteAnalyzer(false)} />;
   }
 
   return (
@@ -192,7 +201,7 @@ export default function App() {
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.signOut}>Sign Out</Text>
         </TouchableOpacity>
-    </View>
+      </View>
 
       <ScrollView style={styles.chatArea}>
         {messages.length === 0 && (
@@ -202,27 +211,27 @@ export default function App() {
           <View key={i} style={[styles.bubble, msg.role === "user" ? styles.userBubble : styles.botBubble]}>
             {msg.image && <Image source={{ uri: msg.image }} style={styles.messageImage} />}
             {msg.text ? (
-  msg.role === "bot" ? (
-    <FormattedDiagnosis text={msg.text} />
-  ) : (
-    <Text style={styles.userText}>{msg.text}</Text>
-  )
-) : null}
-{msg.videos && msg.videos.length > 0 && (
-  <View style={styles.videosContainer}>
-    <Text style={styles.videosHeader}>🎥 DIY Repair Videos</Text>
-    {msg.videos.map((video, i) => (
-      <TouchableOpacity 
-        key={i} 
-        style={styles.videoItem}
-        onPress={() => Linking.openURL(video.url)}
-      >
-        <Text style={styles.videoTitle}>{video.title}</Text>
-        <Text style={styles.videoChannel}>{video.channel} • Watch on YouTube →</Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-)}
+              msg.role === "bot" ? (
+                <FormattedDiagnosis text={msg.text} />
+              ) : (
+                <Text style={styles.userText}>{msg.text}</Text>
+              )
+            ) : null}
+            {msg.videos && msg.videos.length > 0 && (
+              <View style={styles.videosContainer}>
+                <Text style={styles.videosHeader}>🎥 DIY Repair Videos</Text>
+                {msg.videos.map((video, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={styles.videoItem}
+                    onPress={() => Linking.openURL(video.url)}
+                  >
+                    <Text style={styles.videoTitle}>{video.title}</Text>
+                    <Text style={styles.videoChannel}>{video.channel} • Watch on YouTube →</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         ))}
         {diagnosing && <ActivityIndicator size="large" color="#f5a623" style={{ margin: 20 }} />}
@@ -245,7 +254,7 @@ export default function App() {
           <Text style={styles.cameraBtnText}>Gallery</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.cameraBtn} onPress={findNearbyShops}>
-           <Text style={styles.cameraBtnText}>🔧 Shops</Text>
+          <Text style={styles.cameraBtnText}>🔧 Shops</Text>
         </TouchableOpacity>
       </View>
 
@@ -258,10 +267,42 @@ export default function App() {
           placeholderTextColor="#888"
           multiline
         />
-        <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
+        <TouchableOpacity style={styles.sendBtn} onPress={() => {
+          if (!message.trim() && !selectedImage) return;
+          setPendingMessage(message);
+          setPendingImage(selectedImage);
+          setShowVehicleSelector(true);
+        }}>
           <Text style={styles.sendText}>Send</Text>
         </TouchableOpacity>
       </View>
+
+      {showVehicleSelector && (
+        <View style={styles.vehicleModal}>
+          <View style={styles.vehicleModalContent}>
+            <Text style={styles.vehicleModalTitle}>Which vehicle?</Text>
+            <TouchableOpacity
+              style={styles.vehicleOption}
+              onPress={() => sendMessage(car)}
+            >
+              <Text style={styles.vehicleOptionText}>🚗 My {car?.year} {car?.make} {car?.model}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.vehicleOption}
+              onPress={() => sendMessage({ year: "", make: "Unknown", model: "Vehicle" })}
+            >
+              <Text style={styles.vehicleOptionText}>🔧 Different Vehicle</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.vehicleCancel}
+              onPress={() => { setShowVehicleSelector(false); setPendingMessage(null); setPendingImage(null); }}
+            >
+              <Text style={styles.vehicleCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <StatusBar style="auto" />
     </View>
   );
@@ -273,6 +314,8 @@ const styles = StyleSheet.create({
   headerText: { color: "#f5a623", fontSize: 28, fontWeight: "bold" },
   carInfo: { color: "#f5a623", fontSize: 12, marginTop: 2 },
   signOut: { color: "#888", fontSize: 13 },
+  quoteBtn: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: "#2e2e33" },
+  quoteBtnText: { color: "#f5a623", fontSize: 12, fontWeight: "500" },
   chatArea: { flex: 1, padding: 16 },
   placeholder: { color: "#888", textAlign: "center", marginTop: 40, fontSize: 16 },
   bubble: { borderRadius: 12, padding: 12, marginBottom: 12, maxWidth: "85%" },
@@ -299,6 +342,11 @@ const styles = StyleSheet.create({
   videoItem: { backgroundColor: "#0d0d0e", borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: "#2e2e33" },
   videoTitle: { color: "#e8e6e0", fontSize: 13, fontWeight: "500", marginBottom: 4 },
   videoChannel: { color: "#f5a623", fontSize: 12 },
-  quoteBtn: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: "#2e2e33" },
-  quoteBtnText: { color: "#f5a623", fontSize: 12, fontWeight: "500" },
+  vehicleModal: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
+  vehicleModalContent: { backgroundColor: "#161618", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, borderWidth: 1, borderColor: "#2e2e33" },
+  vehicleModalTitle: { color: "#e8e6e0", fontSize: 18, fontWeight: "bold", marginBottom: 16, textAlign: "center" },
+  vehicleOption: { backgroundColor: "#1e1e21", borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: "#2e2e33" },
+  vehicleOptionText: { color: "#e8e6e0", fontSize: 15, textAlign: "center" },
+  vehicleCancel: { padding: 12, alignItems: "center" },
+  vehicleCancelText: { color: "#888", fontSize: 14 },
 });
