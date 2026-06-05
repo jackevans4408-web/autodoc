@@ -141,6 +141,10 @@ export default function App() {
     setDiagnosing(false);
   };
 
+  const findNearbyShops = () => {
+    Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me");
+  };
+
   const signOut = async () => {
     await SecureStore.deleteItemAsync("userSession");
     await SecureStore.deleteItemAsync("userCar");
@@ -239,6 +243,9 @@ export default function App() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.cameraBtn} onPress={pickImage}>
           <Text style={styles.cameraBtnText}>Gallery</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.cameraBtn} onPress={findNearbyShops}>
+           <Text style={styles.cameraBtnText}>🔧 Shops</Text>
         </TouchableOpacity>
       </View>
 
