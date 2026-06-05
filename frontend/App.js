@@ -2,9 +2,11 @@ import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import LoginScreen from "./LoginScreen";
 import CarProfileScreen from "./CarProfileScreen";
 import QuoteHistoryScreen from "./QuoteHistoryScreen";
+import SettingsScreen from "./SettingsScreen";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
 
@@ -41,6 +43,7 @@ export default function App() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [car, setCar] = useState(null);
   const [showQuoteHistory, setShowQuoteHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
   const [pendingMessage, setPendingMessage] = useState(null);
   const [pendingImage, setPendingImage] = useState(null);
@@ -48,6 +51,7 @@ export default function App() {
   const [diffYear, setDiffYear] = useState("");
   const [diffMake, setDiffMake] = useState("");
   const [diffModel, setDiffModel] = useState("");
+  const [showMediaOptions, setShowMediaOptions] = useState(false);
 
   useEffect(() => {
     checkSavedLogin();
@@ -101,6 +105,21 @@ export default function App() {
       base64: true,
     });
     if (!result.canceled) setSelectedImage(result.assets[0]);
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
+        setSelectedImage({ uri: asset.uri, base64: null, name: asset.name, isDocument: true });
+      }
+    } catch (e) {
+      alert("Error picking document");
+    }
   };
 
   const findNearbyShops = () => {
@@ -183,27 +202,52 @@ export default function App() {
     return <QuoteHistoryScreen car={car} onBack={() => setShowQuoteHistory(false)} />;
   }
 
+  if (showSettings) {
+    return <SettingsScreen
+      car={car}
+      session={session}
+      onBack={() => setShowSettings(false)}
+      onSignOut={signOut}
+      onCarUpdate={async (newCar) => {
+        await SecureStore.setItemAsync("userCar", JSON.stringify(newCar));
+        setCar(newCar);
+        setShowSettings(false);
+      }}
+    />;
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity style={styles.menuBtn} onPress={() => setShowSettings(true)}>
+          <View style={styles.menuLine} />
+          <View style={styles.menuLine} />
+          <View style={styles.menuLine} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
           <Text style={styles.headerText}>AutoDoc</Text>
           <Text style={styles.carInfo}>{car.year} {car.make} {car.model}</Text>
         </View>
-        <TouchableOpacity style={styles.quoteBtn} onPress={() => setShowQuoteHistory(true)}>
-          <Text style={styles.quoteBtnText}>📄 Quote/History</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={signOut}>
-          <Text style={styles.signOut}>Sign Out</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.historyBtn} onPress={() => setShowQuoteHistory(true)}>
+            <Text style={styles.historyBtnText}>📄</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={signOut}>
+            <Text style={styles.signOut}>Sign out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.chatArea} keyboardShouldPersistTaps="handled">
         {messages.length === 0 && (
-          <Text style={styles.placeholder}>Describe your car problem or upload a photo...</Text>
+          <View style={styles.emptyChat}>
+            <Text style={styles.emptyChatIcon}>🔧</Text>
+            <Text style={styles.emptyChatTitle}>AutoDoc</Text>
+            <Text style={styles.emptyChatSub}>Describe your car problem, upload a photo, or attach a mechanic quote</Text>
+          </View>
         )}
         {messages.map((msg, i) => (
           <View key={i} style={[styles.bubble, msg.role === "user" ? styles.userBubble : styles.botBubble]}>
@@ -219,11 +263,7 @@ export default function App() {
               <View style={styles.videosContainer}>
                 <Text style={styles.videosHeader}>🎥 DIY Repair Videos</Text>
                 {msg.videos.map((video, vi) => (
-                  <TouchableOpacity
-                    key={vi}
-                    style={styles.videoItem}
-                    onPress={() => Linking.openURL(video.url)}
-                  >
+                  <TouchableOpacity key={vi} style={styles.videoItem} onPress={() => Linking.openURL(video.url)}>
                     <Text style={styles.videoTitle}>{video.title}</Text>
                     <Text style={styles.videoChannel}>{video.channel} • Watch on YouTube →</Text>
                   </TouchableOpacity>
@@ -232,31 +272,52 @@ export default function App() {
             )}
           </View>
         ))}
-        {diagnosing && <ActivityIndicator size="large" color="#f5a623" style={{ margin: 20 }} />}
+        {diagnosing && (
+          <View style={styles.typingIndicator}>
+            <ActivityIndicator size="small" color="#f5a623" />
+            <Text style={styles.typingText}>AutoDoc is diagnosing...</Text>
+          </View>
+        )}
       </ScrollView>
 
       {selectedImage && (
         <View style={styles.imagePreview}>
           <Image source={{ uri: selectedImage.uri }} style={styles.previewThumb} />
+          <Text style={styles.previewName} numberOfLines={1}>{selectedImage.name || "Photo attached"}</Text>
           <TouchableOpacity onPress={() => setSelectedImage(null)}>
             <Text style={styles.removeImage}>✕</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      <View style={styles.cameraRow}>
-        <TouchableOpacity style={styles.cameraBtn} onPress={takePhoto}>
-          <Text style={styles.cameraBtnText}>Camera</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.cameraBtn} onPress={pickImage}>
-          <Text style={styles.cameraBtnText}>Gallery</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.cameraBtn} onPress={findNearbyShops}>
-          <Text style={styles.cameraBtnText}>🔧 Shops</Text>
-        </TouchableOpacity>
-      </View>
+      {showMediaOptions && (
+        <View style={styles.mediaOptions}>
+          <TouchableOpacity style={styles.mediaOption} onPress={() => { takePhoto(); setShowMediaOptions(false); }}>
+            <Text style={styles.mediaOptionIcon}>📷</Text>
+            <Text style={styles.mediaOptionText}>Camera</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.mediaOption} onPress={() => { pickImage(); setShowMediaOptions(false); }}>
+            <Text style={styles.mediaOptionIcon}>🖼</Text>
+            <Text style={styles.mediaOptionText}>Gallery</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.mediaOption} onPress={() => { pickDocument(); setShowMediaOptions(false); }}>
+            <Text style={styles.mediaOptionIcon}>📄</Text>
+            <Text style={styles.mediaOptionText}>Document</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.mediaOption} onPress={() => { findNearbyShops(); setShowMediaOptions(false); }}>
+            <Text style={styles.mediaOptionIcon}>🔧</Text>
+            <Text style={styles.mediaOptionText}>Shops</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      <View style={styles.inputArea}>
+      <View style={styles.inputRow}>
+        <TouchableOpacity
+          style={[styles.plusBtn, showMediaOptions && styles.plusBtnActive]}
+          onPress={() => setShowMediaOptions(!showMediaOptions)}
+        >
+          <Text style={styles.plusBtnText}>{showMediaOptions ? "✕" : "+"}</Text>
+        </TouchableOpacity>
         <TextInput
           style={styles.input}
           value={message}
@@ -268,11 +329,12 @@ export default function App() {
         <TouchableOpacity style={styles.sendBtn} onPress={() => {
           if (!message.trim() && !selectedImage) return;
           Keyboard.dismiss();
+          setShowMediaOptions(false);
           setPendingMessage(message);
           setPendingImage(selectedImage);
           setShowVehicleSelector(true);
         }}>
-          <Text style={styles.sendText}>Send</Text>
+          <Text style={styles.sendText}>↑</Text>
         </TouchableOpacity>
       </View>
 
@@ -319,30 +381,44 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0e" },
-  header: { backgroundColor: "#161618", paddingTop: 60, paddingBottom: 20, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
-  headerText: { color: "#f5a623", fontSize: 28, fontWeight: "bold" },
-  carInfo: { color: "#f5a623", fontSize: 12, marginTop: 2 },
-  signOut: { color: "#888", fontSize: 13 },
-  quoteBtn: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: "#2e2e33" },
-  quoteBtnText: { color: "#f5a623", fontSize: 12, fontWeight: "500" },
+  header: { backgroundColor: "#161618", paddingTop: 60, paddingBottom: 16, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
+  menuBtn: { width: 36, height: 36, justifyContent: "center", gap: 5 },
+  menuLine: { width: 22, height: 2, backgroundColor: "#e8e6e0", borderRadius: 2 },
+  headerCenter: { alignItems: "center" },
+  headerText: { color: "#f5a623", fontSize: 22, fontWeight: "bold" },
+  carInfo: { color: "#888", fontSize: 11, marginTop: 1 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  historyBtn: { width: 32, height: 32, justifyContent: "center", alignItems: "center" },
+  historyBtnText: { fontSize: 18 },
+  signOut: { color: "#888", fontSize: 11 },
   chatArea: { flex: 1, padding: 16 },
-  placeholder: { color: "#888", textAlign: "center", marginTop: 40, fontSize: 16 },
-  bubble: { borderRadius: 12, padding: 12, marginBottom: 12, maxWidth: "85%" },
+  emptyChat: { alignItems: "center", paddingTop: 80 },
+  emptyChatIcon: { fontSize: 48, marginBottom: 12 },
+  emptyChatTitle: { color: "#f5a623", fontSize: 24, fontWeight: "bold", marginBottom: 8 },
+  emptyChatSub: { color: "#888", fontSize: 14, textAlign: "center", lineHeight: 20, paddingHorizontal: 32 },
+  bubble: { borderRadius: 16, padding: 12, marginBottom: 12, maxWidth: "88%" },
   userBubble: { backgroundColor: "#222226", alignSelf: "flex-end" },
-  botBubble: { backgroundColor: "#1e1e21", alignSelf: "flex-start", borderWidth: 1, borderColor: "#2e2e33" },
+  botBubble: { backgroundColor: "#161618", alignSelf: "flex-start", borderWidth: 1, borderColor: "#2e2e33" },
   userText: { color: "#e8e6e0", fontSize: 14 },
   botText: { color: "#e8e6e0", fontSize: 14, lineHeight: 22 },
   messageImage: { width: 200, height: 150, borderRadius: 8, marginBottom: 8 },
-  imagePreview: { flexDirection: "row", alignItems: "center", padding: 8, backgroundColor: "#161618", borderTopWidth: 1, borderTopColor: "#2e2e33" },
-  previewThumb: { width: 50, height: 50, borderRadius: 6, marginRight: 8 },
+  typingIndicator: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12 },
+  typingText: { color: "#888", fontSize: 13 },
+  imagePreview: { flexDirection: "row", alignItems: "center", padding: 8, paddingHorizontal: 16, backgroundColor: "#161618", borderTopWidth: 1, borderTopColor: "#2e2e33", gap: 8 },
+  previewThumb: { width: 40, height: 40, borderRadius: 6 },
+  previewName: { flex: 1, color: "#888", fontSize: 12 },
   removeImage: { color: "#888", fontSize: 18, padding: 4 },
-  cameraRow: { flexDirection: "row", padding: 8, backgroundColor: "#161618", gap: 8 },
-  cameraBtn: { flex: 1, backgroundColor: "#1e1e21", borderRadius: 8, padding: 10, alignItems: "center", borderWidth: 1, borderColor: "#2e2e33" },
-  cameraBtnText: { color: "#e8e6e0", fontSize: 13 },
-  inputArea: { flexDirection: "row", padding: 12, backgroundColor: "#161618", borderTopWidth: 1, borderTopColor: "#2e2e33" },
-  input: { flex: 1, backgroundColor: "#1e1e21", color: "#e8e6e0", borderRadius: 8, padding: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33" },
-  sendBtn: { backgroundColor: "#f5a623", borderRadius: 8, padding: 10, marginLeft: 8, justifyContent: "center" },
-  sendText: { color: "#0d0d0e", fontWeight: "bold" },
+  mediaOptions: { backgroundColor: "#161618", borderTopWidth: 1, borderTopColor: "#2e2e33", flexDirection: "row", padding: 12, gap: 8 },
+  mediaOption: { flex: 1, backgroundColor: "#1e1e21", borderRadius: 12, padding: 12, alignItems: "center", borderWidth: 1, borderColor: "#2e2e33" },
+  mediaOptionIcon: { fontSize: 22, marginBottom: 4 },
+  mediaOptionText: { color: "#888", fontSize: 11 },
+  inputRow: { flexDirection: "row", padding: 12, backgroundColor: "#161618", borderTopWidth: 1, borderTopColor: "#2e2e33", alignItems: "flex-end", gap: 8 },
+  plusBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#1e1e21", borderWidth: 1, borderColor: "#2e2e33", justifyContent: "center", alignItems: "center" },
+  plusBtnActive: { backgroundColor: "#2e2e33", borderColor: "#f5a623" },
+  plusBtnText: { color: "#f5a623", fontSize: 22, fontWeight: "300", lineHeight: 26 },
+  input: { flex: 1, backgroundColor: "#1e1e21", color: "#e8e6e0", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", maxHeight: 100 },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#f5a623", justifyContent: "center", alignItems: "center" },
+  sendText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 20, marginTop: -2 },
   diagHeader: { color: "#f5a623", fontWeight: "bold", fontSize: 15, marginTop: 8, marginBottom: 2 },
   diagUrgent: { color: "#e05a5a", fontWeight: "600" },
   diagCost: { color: "#4caf7d", fontWeight: "500" },
