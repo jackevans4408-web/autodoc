@@ -1,16 +1,6 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, KeyboardAvoidingView, Platform } from "react-native";
-import { useState } from "react";
-import CarProfileScreen from "./CarProfileScreen";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 
-export default function SettingsScreen({ car, session, onBack, onSignOut, onCarUpdate }) {
-  const [showChangeCar, setShowChangeCar] = useState(false);
-
-  if (showChangeCar) {
-    return <CarProfileScreen onSave={(newCar) => {
-      onCarUpdate(newCar);
-      setShowChangeCar(false);
-    }} />;
-  }
+export default function SettingsScreen({ car, session, onBack, onSignOut, onShowQuoteHistory }) {
 
   return (
     <View style={styles.container}>
@@ -24,7 +14,6 @@ export default function SettingsScreen({ car, session, onBack, onSignOut, onCarU
 
       <ScrollView style={styles.content}>
 
-        {/* Account Section */}
         <Text style={styles.sectionLabel}>Account</Text>
         <View style={styles.section}>
           <View style={styles.settingRow}>
@@ -33,21 +22,22 @@ export default function SettingsScreen({ car, session, onBack, onSignOut, onCarU
           </View>
         </View>
 
-        {/* Vehicle Section */}
-        <Text style={styles.sectionLabel}>My Vehicle</Text>
+        <Text style={styles.sectionLabel}>My Car</Text>
         <View style={styles.section}>
           <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>🚗 Current Car</Text>
+            <Text style={styles.settingLabel}>🚗 Active Vehicle</Text>
             <Text style={styles.settingValue}>{car?.year} {car?.make} {car?.model}</Text>
           </View>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.settingRow} onPress={() => setShowChangeCar(true)}>
-            <Text style={styles.settingLabel}>🔄 Change Vehicle</Text>
+        </View>
+
+        <Text style={styles.sectionLabel}>Tools</Text>
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.settingRow} onPress={onShowQuoteHistory}>
+            <Text style={styles.settingLabel}>📄 Quote / History</Text>
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
         </View>
 
-        {/* App Section */}
         <Text style={styles.sectionLabel}>App</Text>
         <View style={styles.section}>
           <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
@@ -66,7 +56,6 @@ export default function SettingsScreen({ car, session, onBack, onSignOut, onCarU
           </TouchableOpacity>
         </View>
 
-        {/* Support Section */}
         <Text style={styles.sectionLabel}>Support</Text>
         <View style={styles.section}>
           <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
@@ -85,7 +74,6 @@ export default function SettingsScreen({ car, session, onBack, onSignOut, onCarU
           </TouchableOpacity>
         </View>
 
-        {/* App Info */}
         <Text style={styles.sectionLabel}>About</Text>
         <View style={styles.section}>
           <View style={styles.settingRow}>
@@ -94,7 +82,6 @@ export default function SettingsScreen({ car, session, onBack, onSignOut, onCarU
           </View>
         </View>
 
-        {/* Sign Out */}
         <TouchableOpacity style={styles.signOutBtn} onPress={onSignOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>

@@ -7,6 +7,7 @@ import LoginScreen from "./LoginScreen";
 import CarProfileScreen from "./CarProfileScreen";
 import QuoteHistoryScreen from "./QuoteHistoryScreen";
 import SettingsScreen from "./SettingsScreen";
+import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
 
@@ -42,6 +43,9 @@ export default function App() {
   const [diagnosing, setDiagnosing] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [car, setCar] = useState(null);
+  const [cars, setCars] = useState([]);
+  const [showCarSelector, setShowCarSelector] = useState(false);
+  const [showAddCar, setShowAddCar] = useState(false);
   const [showQuoteHistory, setShowQuoteHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
@@ -60,7 +64,8 @@ export default function App() {
   const checkSavedLogin = async () => {
     try {
       const savedSession = await SecureStore.getItemAsync("userSession");
-      const savedCar = await SecureStore.getItemAsync("userCar");
+      const savedCars = await SecureStore.getItemAsync("userCars");
+      const savedActiveCar = await SecureStore.getItemAsync("userCar");
       if (savedSession) {
         const hasBiometrics = await LocalAuthentication.hasHardwareAsync();
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
@@ -71,11 +76,13 @@ export default function App() {
           });
           if (result.success) {
             setSession(JSON.parse(savedSession));
-            if (savedCar) setCar(JSON.parse(savedCar));
+            if (savedCars) setCars(JSON.parse(savedCars));
+            if (savedActiveCar) setCar(JSON.parse(savedActiveCar));
           }
         } else {
           setSession(JSON.parse(savedSession));
-          if (savedCar) setCar(JSON.parse(savedCar));
+          if (savedCars) setCars(JSON.parse(savedCars));
+          if (savedActiveCar) setCar(JSON.parse(savedActiveCar));
         }
       }
     } catch (e) {
@@ -120,10 +127,6 @@ export default function App() {
     } catch (e) {
       alert("Error picking document");
     }
-  };
-
-  const findNearbyShops = () => {
-    Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me");
   };
 
   const sendMessage = async (overrideCar = null) => {
@@ -171,9 +174,28 @@ export default function App() {
   const signOut = async () => {
     await SecureStore.deleteItemAsync("userSession");
     await SecureStore.deleteItemAsync("userCar");
+    await SecureStore.deleteItemAsync("userCars");
     setSession(null);
     setCar(null);
+    setCars([]);
     setMessages([]);
+  };
+
+  const selectCar = async (selectedCar) => {
+    setCar(selectedCar);
+    await SecureStore.setItemAsync("userCar", JSON.stringify(selectedCar));
+    setShowCarSelector(false);
+    setMessages([]);
+  };
+
+  const deleteCar = async (carId) => {
+    const updated = cars.filter(c => c.id !== carId);
+    setCars(updated);
+    await SecureStore.setItemAsync("userCars", JSON.stringify(updated));
+    if (car?.id === carId && updated.length > 0) {
+      setCar(updated[0]);
+      await SecureStore.setItemAsync("userCar", JSON.stringify(updated[0]));
+    }
   };
 
   if (loading) {
@@ -191,10 +213,15 @@ export default function App() {
     }} />;
   }
 
-  if (!car) {
+  if (!car || showAddCar) {
     return <CarProfileScreen onSave={async (carData) => {
-      await SecureStore.setItemAsync("userCar", JSON.stringify(carData));
-      setCar(carData);
+      const newCar = { ...carData, id: Date.now().toString() };
+      const updatedCars = [...cars, newCar];
+      setCars(updatedCars);
+      setCar(newCar);
+      await SecureStore.setItemAsync("userCars", JSON.stringify(updatedCars));
+      await SecureStore.setItemAsync("userCar", JSON.stringify(newCar));
+      setShowAddCar(false);
     }} />;
   }
 
@@ -208,7 +235,6 @@ export default function App() {
       session={session}
       onBack={() => setShowSettings(false)}
       onSignOut={signOut}
-      onShowQuoteHistory={() => { setShowSettings(false); setShowQuoteHistory(true); }}
       onCarUpdate={async (newCar) => {
         const updated = cars.map(c => c.id === newCar.id ? newCar : c);
         setCars(updated);
@@ -218,6 +244,7 @@ export default function App() {
         setShowSettings(false);
       }}
     />;
+  }
 
   return (
     <KeyboardAvoidingView
@@ -225,21 +252,21 @@ export default function App() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.header}>
-        <TouchableOpacity style={styles.menuBtn} onPress={() => setShowSettings(true)}>
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
-          <View style={styles.menuLine} />
+        <Text style={styles.headerText}>AutoDoc</Text>
+
+        <TouchableOpacity style={styles.carSelector} onPress={() => setShowCarSelector(true)}>
+          <Text style={styles.carSelectorText}>{car.year} {car.make} {car.model}</Text>
+          <Text style={styles.carSelectorArrow}>▼</Text>
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerText}>AutoDoc</Text>
-          <Text style={styles.carInfo}>{car.year} {car.make} {car.model}</Text>
-        </View>
+
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.historyBtn} onPress={() => setShowQuoteHistory(true)}>
-            <Text style={styles.historyBtnText}>📄</Text>
+          <TouchableOpacity onPress={() => Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me")}>
+            <Text style={styles.shopsIcon}>🔧</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={signOut}>
-            <Text style={styles.signOut}>Sign out</Text>
+          <TouchableOpacity style={styles.menuBtn} onPress={() => setShowSettings(true)}>
+            <View style={styles.menuLine} />
+            <View style={styles.menuLine} />
+            <View style={styles.menuLine} />
           </TouchableOpacity>
         </View>
       </View>
@@ -307,10 +334,6 @@ export default function App() {
             <Text style={styles.mediaOptionIcon}>📄</Text>
             <Text style={styles.mediaOptionText}>Document</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.mediaOption} onPress={() => { findNearbyShops(); setShowMediaOptions(false); }}>
-            <Text style={styles.mediaOptionIcon}>🔧</Text>
-            <Text style={styles.mediaOptionText}>Shops</Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -377,6 +400,16 @@ export default function App() {
         </View>
       )}
 
+      <CarSelectorModal
+        visible={showCarSelector}
+        cars={cars}
+        activeCar={car}
+        onSelect={selectCar}
+        onAdd={() => { setShowCarSelector(false); setShowAddCar(true); }}
+        onDelete={deleteCar}
+        onClose={() => setShowCarSelector(false)}
+      />
+
       <StatusBar style="auto" />
     </KeyboardAvoidingView>
   );
@@ -384,16 +417,15 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0e" },
-  header: { backgroundColor: "#161618", paddingTop: 60, paddingBottom: 16, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
-  menuBtn: { width: 36, height: 36, justifyContent: "center", gap: 5 },
-  menuLine: { width: 22, height: 2, backgroundColor: "#e8e6e0", borderRadius: 2 },
-  headerCenter: { alignItems: "center" },
+  header: { backgroundColor: "#161618", paddingTop: 56, paddingBottom: 14, paddingHorizontal: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
   headerText: { color: "#f5a623", fontSize: 22, fontWeight: "bold" },
-  carInfo: { color: "#888", fontSize: 11, marginTop: 1 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
-  historyBtn: { width: 32, height: 32, justifyContent: "center", alignItems: "center" },
-  historyBtnText: { fontSize: 18 },
-  signOut: { color: "#888", fontSize: 11 },
+  carSelector: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "#2e2e33" },
+  carSelectorText: { color: "#e8e6e0", fontSize: 12, fontWeight: "500", maxWidth: 120 },
+  carSelectorArrow: { color: "#888", fontSize: 10 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 12 },
+  shopsIcon: { fontSize: 18 },
+  menuBtn: { width: 32, height: 24, justifyContent: "space-between" },
+  menuLine: { width: 22, height: 2, backgroundColor: "#e8e6e0", borderRadius: 2 },
   chatArea: { flex: 1, padding: 16 },
   emptyChat: { alignItems: "center", paddingTop: 80 },
   emptyChatIcon: { fontSize: 48, marginBottom: 12 },
