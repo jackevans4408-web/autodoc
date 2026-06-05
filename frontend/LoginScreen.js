@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useState } from "react";
 import { signIn, signUp } from "./supabase";
 
@@ -28,46 +28,52 @@ export default function LoginScreen({ onLogin }) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.logoArea}>
-        <Text style={styles.logo}>AutoDoc</Text>
-        <Text style={styles.tagline}>AI Car Diagnostics</Text>
-      </View>
-      <View style={styles.form}>
-        <Text style={styles.title}>{isSignUp ? "Create Account" : "Welcome Back"}</Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#888"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#888"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        <TouchableOpacity style={styles.btn} onPress={handleAuth} disabled={loading}>
-          {loading ? <ActivityIndicator color="#0d0d0e" /> : <Text style={styles.btnText}>{isSignUp ? "Sign Up" : "Sign In"}</Text>}
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
-          <Text style={styles.switchText}>
-            {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.logoArea}>
+          <Text style={styles.logo}>AutoDoc</Text>
+          <Text style={styles.tagline}>AI Car Diagnostics</Text>
+        </View>
+        <View style={styles.form}>
+          <Text style={styles.title}>{isSignUp ? "Create Account" : "Welcome Back"}</Text>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#888"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#888"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+          <TouchableOpacity style={styles.btn} onPress={handleAuth} disabled={loading}>
+            {loading ? <ActivityIndicator color="#0d0d0e" /> : <Text style={styles.btnText}>{isSignUp ? "Sign Up" : "Sign In"}</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
+            <Text style={styles.switchText}>
+              {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0d0d0e", justifyContent: "center", padding: 24 },
+  container: { flex: 1, backgroundColor: "#0d0d0e" },
+  scrollContent: { flexGrow: 1, justifyContent: "center", padding: 24 },
   logoArea: { alignItems: "center", marginBottom: 48 },
   logo: { color: "#f5a623", fontSize: 42, fontWeight: "bold" },
   tagline: { color: "#888", fontSize: 16, marginTop: 8 },

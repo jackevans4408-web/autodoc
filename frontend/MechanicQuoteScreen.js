@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 
@@ -34,7 +34,6 @@ export default function MechanicQuoteScreen({ car, onBack }) {
     if (!selectedImage) { alert("Please upload a photo of your mechanic quote first!"); return; }
     setLoading(true);
     setError("");
-
     try {
       const body = {
         text: `Please analyze this mechanic repair quote for my ${car?.year} ${car?.make} ${car?.model}. For each line item tell me: 1) Is this repair necessary or is it an upsell? 2) Is the price fair or inflated? 3) Can I DIY this? 4) Can it wait or is it urgent? End with a summary of what I should actually get done and what I can skip or negotiate.`,
@@ -44,13 +43,11 @@ export default function MechanicQuoteScreen({ car, onBack }) {
         car_make: car?.make,
         car_model: car?.model,
       };
-
       const response = await fetch("https://autodoc-production-1703.up.railway.app/diagnose", {
         method: "POST",
         headers: { "Accept": "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-
       const data = await response.json();
       setAnalysis(data.diagnosis);
     } catch (e) {
@@ -60,7 +57,10 @@ export default function MechanicQuoteScreen({ car, onBack }) {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Text style={styles.backText}>← Back</Text>
@@ -69,7 +69,7 @@ export default function MechanicQuoteScreen({ car, onBack }) {
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Analyze Your Repair Quote</Text>
         <Text style={styles.subtitle}>Upload a photo of your mechanic's estimate and AutoDoc will tell you what's necessary, what's an upsell, and if the prices are fair.</Text>
 
@@ -141,7 +141,7 @@ export default function MechanicQuoteScreen({ car, onBack }) {
           </View>
         )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
