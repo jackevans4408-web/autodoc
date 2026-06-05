@@ -64,25 +64,41 @@ export default function App() {
   const checkSavedLogin = async () => {
     try {
       const savedSession = await SecureStore.getItemAsync("userSession");
+      const savedCar = await SecureStore.getItemAsync("userCar");
       const savedCars = await SecureStore.getItemAsync("userCars");
-      const savedActiveCar = await SecureStore.getItemAsync("userCar");
+
       if (savedSession) {
         const hasBiometrics = await LocalAuthentication.hasHardwareAsync();
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        let authSuccess = false;
+
         if (hasBiometrics && isEnrolled) {
           const result = await LocalAuthentication.authenticateAsync({
             promptMessage: "Sign in to AutoDoc",
             fallbackLabel: "Use Password",
           });
-          if (result.success) {
-            setSession(JSON.parse(savedSession));
-            if (savedCars) setCars(JSON.parse(savedCars));
-            if (savedActiveCar) setCar(JSON.parse(savedActiveCar));
-          }
+          authSuccess = result.success;
         } else {
+          authSuccess = true;
+        }
+
+        if (authSuccess) {
           setSession(JSON.parse(savedSession));
-          if (savedCars) setCars(JSON.parse(savedCars));
-          if (savedActiveCar) setCar(JSON.parse(savedActiveCar));
+          if (savedCar) {
+            const parsedCar = JSON.parse(savedCar);
+            // Make sure car has an id
+            if (!parsedCar.id) parsedCar.id = Date.now().toString();
+            setCar(parsedCar);
+
+            if (savedCars) {
+              setCars(JSON.parse(savedCars));
+            } else {
+              // Migrate old single car to cars array
+              const migratedCars = [parsedCar];
+              setCars(migratedCars);
+              await SecureStore.setItemAsync("userCars", JSON.stringify(migratedCars));
+            }
+          }
         }
       }
     } catch (e) {
@@ -246,15 +262,13 @@ export default function App() {
     >
       <View style={styles.header}>
         <Text style={styles.headerText}>AutoDoc</Text>
-
         <TouchableOpacity style={styles.carSelector} onPress={() => setShowCarSelector(true)}>
           <Text style={styles.carSelectorText} numberOfLines={1}>{car.year} {car.make} {car.model}</Text>
           <Text style={styles.carSelectorArrow}>▼</Text>
         </TouchableOpacity>
-
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={() => setShowQuoteHistory(true)}>
-            <Text style={styles.quoteHistoryBtn}>📄 Quote/History</Text>
+            <Text style={styles.quoteHistoryBtn}>📄 Quotes</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me")}>
             <Text style={styles.shopsIcon}>🔧</Text>
@@ -415,7 +429,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0e" },
   header: { backgroundColor: "#161618", paddingTop: 56, paddingBottom: 12, paddingHorizontal: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
   headerText: { color: "#f5a623", fontSize: 20, fontWeight: "bold" },
-  carSelector: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "#2e2e33", maxWidth: 140 },
+  carSelector: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "#2e2e33", maxWidth: 130 },
   carSelectorText: { color: "#e8e6e0", fontSize: 11, fontWeight: "500" },
   carSelectorArrow: { color: "#888", fontSize: 9 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
