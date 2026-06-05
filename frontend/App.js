@@ -44,23 +44,22 @@ export default function App() {
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
   const [pendingMessage, setPendingMessage] = useState(null);
   const [pendingImage, setPendingImage] = useState(null);
+  const [differentVehicle, setDifferentVehicle] = useState(false);
+  const [diffYear, setDiffYear] = useState("");
+  const [diffMake, setDiffMake] = useState("");
+  const [diffModel, setDiffModel] = useState("");
 
   useEffect(() => {
     checkSavedLogin();
   }, []);
 
   const checkSavedLogin = async () => {
-    console.log("Checking saved login...");
     try {
       const savedSession = await SecureStore.getItemAsync("userSession");
-      console.log("Saved session:", savedSession ? "found" : "not found");
       const savedCar = await SecureStore.getItemAsync("userCar");
-      console.log("Saved car:", savedCar ? "found" : "not found");
-
       if (savedSession) {
         const hasBiometrics = await LocalAuthentication.hasHardwareAsync();
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-
         if (hasBiometrics && isEnrolled) {
           const result = await LocalAuthentication.authenticateAsync({
             promptMessage: "Sign in to AutoDoc",
@@ -111,28 +110,24 @@ export default function App() {
   const sendMessage = async (overrideCar = null) => {
     const userMessage = pendingMessage !== null ? pendingMessage : message;
     const userImage = pendingImage !== null ? pendingImage : selectedImage;
-
     if (!userMessage.trim() && !userImage) return;
-
     setMessage("");
     setSelectedImage(null);
     setPendingMessage(null);
     setPendingImage(null);
     setShowVehicleSelector(false);
+    setDifferentVehicle(false);
+    setDiffYear(""); setDiffMake(""); setDiffModel("");
     setMessages(prev => [...prev, { role: "user", text: userMessage, image: userImage?.uri }]);
     setDiagnosing(true);
-
     const activeCar = overrideCar || car;
-
     try {
-      console.log("Car object:", JSON.stringify(activeCar));
       const body = {
         text: userMessage,
         car_year: activeCar?.year,
         car_make: activeCar?.make,
         car_model: activeCar?.model
       };
-      console.log("Sending car info:", activeCar?.year, activeCar?.make, activeCar?.model);
       if (userImage?.base64) {
         body.image_base64 = userImage.base64;
         body.image_type = "image/jpeg";
@@ -220,9 +215,9 @@ export default function App() {
             {msg.videos && msg.videos.length > 0 && (
               <View style={styles.videosContainer}>
                 <Text style={styles.videosHeader}>🎥 DIY Repair Videos</Text>
-                {msg.videos.map((video, i) => (
+                {msg.videos.map((video, vi) => (
                   <TouchableOpacity
-                    key={i}
+                    key={vi}
                     style={styles.videoItem}
                     onPress={() => Linking.openURL(video.url)}
                   >
@@ -281,21 +276,57 @@ export default function App() {
         <View style={styles.vehicleModal}>
           <View style={styles.vehicleModalContent}>
             <Text style={styles.vehicleModalTitle}>Which vehicle?</Text>
-            <TouchableOpacity
-              style={styles.vehicleOption}
-              onPress={() => sendMessage(car)}
-            >
+            <TouchableOpacity style={styles.vehicleOption} onPress={() => sendMessage(car)}>
               <Text style={styles.vehicleOptionText}>🚗 My {car?.year} {car?.make} {car?.model}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.vehicleOption}
-              onPress={() => sendMessage({ year: "", make: "Unknown", model: "Vehicle" })}
-            >
-              <Text style={styles.vehicleOptionText}>🔧 Different Vehicle</Text>
-            </TouchableOpacity>
+            {!differentVehicle ? (
+              <TouchableOpacity style={styles.vehicleOption} onPress={() => setDifferentVehicle(true)}>
+                <Text style={styles.vehicleOptionText}>🔧 Different Vehicle</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.diffVehicleForm}>
+                <TextInput
+                  style={styles.diffInput}
+                  placeholder="Year (e.g. 2020)"
+                  placeholderTextColor="#888"
+                  value={diffYear}
+                  onChangeText={setDiffYear}
+                  keyboardType="numeric"
+                  maxLength={4}
+                />
+                <TextInput
+                  style={styles.diffInput}
+                  placeholder="Make (e.g. Toyota)"
+                  placeholderTextColor="#888"
+                  value={diffMake}
+                  onChangeText={setDiffMake}
+                />
+                <TextInput
+                  style={styles.diffInput}
+                  placeholder="Model (e.g. Camry)"
+                  placeholderTextColor="#888"
+                  value={diffModel}
+                  onChangeText={setDiffModel}
+                />
+                <TouchableOpacity
+                  style={styles.vehicleOption}
+                  onPress={() => {
+                    sendMessage({ year: diffYear, make: diffMake, model: diffModel });
+                  }}
+                >
+                  <Text style={styles.vehicleOptionText}>Diagnose This Car →</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <TouchableOpacity
               style={styles.vehicleCancel}
-              onPress={() => { setShowVehicleSelector(false); setPendingMessage(null); setPendingImage(null); }}
+              onPress={() => {
+                setShowVehicleSelector(false);
+                setPendingMessage(null);
+                setPendingImage(null);
+                setDifferentVehicle(false);
+                setDiffYear(""); setDiffMake(""); setDiffModel("");
+              }}
             >
               <Text style={styles.vehicleCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -349,4 +380,6 @@ const styles = StyleSheet.create({
   vehicleOptionText: { color: "#e8e6e0", fontSize: 15, textAlign: "center" },
   vehicleCancel: { padding: 12, alignItems: "center" },
   vehicleCancelText: { color: "#888", fontSize: 14 },
+  diffVehicleForm: { marginBottom: 12 },
+  diffInput: { backgroundColor: "#0d0d0e", color: "#e8e6e0", borderRadius: 8, padding: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 8 },
 });
