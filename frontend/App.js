@@ -218,6 +218,7 @@ export default function App() {
         setShowSettings(false);
       }}
     />;
+  }
 
   return (
     <KeyboardAvoidingView
