@@ -1,13 +1,14 @@
 import anthropic
 import base64
 from dotenv import load_dotenv
+from pathlib import Path
 import os
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env")
 
-client = anthropic.Anthropic(api_key=os.getenv("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"))
+client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-def diagnose_car(text: str = None, image_data: bytes = None, image_type: str = None):
+def diagnose_car(text: str = None, image_data: bytes = None, image_type: str = None, car_info: str = None, recall_info: str = None):
     
     messages_content = []
     
@@ -22,11 +23,21 @@ def diagnose_car(text: str = None, image_data: bytes = None, image_type: str = N
             }
         })
     
+    prompt = ""
+    if car_info:
+        prompt += f"Vehicle: {car_info}\n\n"
+    if recall_info:
+        prompt += f"NHTSA Recall Data:\n{recall_info}\n\n"
     if text:
-        messages_content.append({
-            "type": "text",
-            "text": text
-        })
+        prompt += f"Problem described: {text}"
+    
+    if not prompt and not image_data:
+        prompt = "Please diagnose this vehicle issue."
+    
+    messages_content.append({
+        "type": "text",
+        "text": prompt
+    })
     
     response = client.messages.create(
         model="claude-sonnet-4-5",
@@ -39,6 +50,9 @@ def diagnose_car(text: str = None, image_data: bytes = None, image_type: str = N
         4. Repair steps
         5. Estimated cost range in USD
         6. Urgency level (Critical/High/Medium/Low)
+        
+        If NHTSA recall data is provided, always mention it prominently at the top of your response if it's relevant to the described problem.
+        
         Be specific, practical, and easy to understand for non-mechanics.""",
         messages=[
             {"role": "user", "content": messages_content}

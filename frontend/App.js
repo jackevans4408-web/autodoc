@@ -44,10 +44,13 @@ export default function App() {
     checkSavedLogin();
   }, []);
 
-  const checkSavedLogin = async () => {
+   const checkSavedLogin = async () => {
+    console.log("Checking saved login...");
     try {
       const savedSession = await SecureStore.getItemAsync("userSession");
+      console.log("Saved session:", savedSession ? "found" : "not found");
       const savedCar = await SecureStore.getItemAsync("userCar");
+      console.log("Saved car:", savedCar ? "found" : "not found");
 
       if (savedSession) {
         const hasBiometrics = await LocalAuthentication.hasHardwareAsync();
