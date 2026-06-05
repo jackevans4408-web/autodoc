@@ -109,7 +109,14 @@ export default function App() {
     setDiagnosing(true);
 
     try {
-      const body = { text: userMessage };
+  console.log("Car object:", JSON.stringify(car));
+  const body = { 
+  text: userMessage,
+  car_year: car?.year,
+  car_make: car?.make,
+  car_model: car?.model
+  };
+  console.log("Sending car info:", car?.year, car?.make, car?.model);
       if (userImage?.base64) {
         body.image_base64 = userImage.base64;
         body.image_type = "image/jpeg";
