@@ -41,7 +41,6 @@ export default function App() {
   const [diagnosing, setDiagnosing] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [car, setCar] = useState(null);
-  const [showQuoteAnalyzer, setShowQuoteAnalyzer] = useState(false);
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
   const [pendingMessage, setPendingMessage] = useState(null);
   const [pendingImage, setPendingImage] = useState(null);
@@ -49,7 +48,7 @@ export default function App() {
   const [diffYear, setDiffYear] = useState("");
   const [diffMake, setDiffMake] = useState("");
   const [diffModel, setDiffModel] = useState("");
-  const [showRepairHistory, setShowRepairHistory] = useState(false);
+  const [showQuoteHistory, setShowQuoteHistory] = useState(false);
 
   useEffect(() => {
     checkSavedLogin();
@@ -181,6 +180,10 @@ export default function App() {
     }} />;
   }
 
+  if (showQuoteHistory) {
+  return <QuoteHistoryScreen car={car} onBack={() => setShowQuoteHistory(false)} />;
+  }
+
   if (showRepairHistory) {
     return <RepairHistoryScreen car={car} onBack={() => setShowRepairHistory(false)} />;
   }
@@ -199,13 +202,17 @@ export default function App() {
           <Text style={styles.headerText}>AutoDoc</Text>
           <Text style={styles.carInfo}>{car.year} {car.make} {car.model}</Text>
         </View>
-        <TouchableOpacity style={styles.quoteBtn} onPress={() => setShowRepairHistory(true)}>
-           <Text style={styles.quoteBtnText}>🔧 History</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.quoteBtn} onPress={() => setShowQuoteHistory(true)}>
+            <Text style={styles.quoteBtnText}>📄 Quote/History</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={signOut}>
+            <Text style={styles.signOut}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.signOut}>Sign Out</Text>
         </TouchableOpacity>
-      </View>
+      
 
       <ScrollView style={styles.chatArea} keyboardShouldPersistTaps="handled">
         {messages.length === 0 && (
