@@ -4,6 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 
 
+
 export default function QuoteHistoryScreen({ car, onBack }) {
   const [activeTab, setActiveTab] = useState("quotes");
   const [repairs, setRepairs] = useState([]);
@@ -18,7 +19,9 @@ export default function QuoteHistoryScreen({ car, onBack }) {
   const [repairCost, setRepairCost] = useState("");
   const [repairMileage, setRepairMileage] = useState("");
   const [repairNotes, setRepairNotes] = useState("");
-  const [showQuoteHistory, setShowQuoteHistory] = useState(false);
+  const [expandedQuote, setExpandedQuote] = useState(null);
+  const [expandedRepair, setExpandedRepair] = useState(null);
+
 
   useEffect(() => {
     loadData();
@@ -160,17 +163,28 @@ export default function QuoteHistoryScreen({ car, onBack }) {
               </View>
             ) : (
               quotes.map(quote => (
-                <View key={quote.id} style={styles.quoteCard}>
-                  <View style={styles.quoteCardHeader}>
+                <TouchableOpacity 
+                    key={quote.id} 
+                    style={styles.quoteCard}
+                    onPress={() => setExpandedQuote(expandedQuote === quote.id ? null : quote.id)}
+                >
+                    <View style={styles.quoteCardHeader}>
                     <Text style={styles.quoteDate}>📅 {quote.date}</Text>
-                    <TouchableOpacity onPress={() => deleteQuote(quote.id)}>
-                      <Text style={styles.deleteBtn}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <Image source={{ uri: quote.imageUri }} style={styles.quoteThumbnail} />
-                  <Text style={styles.quoteAnalysisPreview} numberOfLines={3}>{quote.analysis}</Text>
-                </View>
-              ))
+                    <View style={styles.quoteCardActions}>
+                        <Text style={styles.expandHint}>{expandedQuote === quote.id ? "▲ Collapse" : "▼ View"}</Text>
+                        <TouchableOpacity onPress={() => deleteQuote(quote.id)} style={{marginLeft: 12}}>
+                        <Text style={styles.deleteBtn}>✕</Text>
+                        </TouchableOpacity>
+                    </View>
+                    </View>
+                    <Image source={{ uri: quote.imageUri }} style={styles.quoteThumbnail} />
+                    {expandedQuote === quote.id ? (
+                    <Text style={styles.quoteAnalysisFull}>{quote.analysis}</Text>
+                    ) : (
+                    <Text style={styles.quoteAnalysisPreview} numberOfLines={3}>{quote.analysis}</Text>
+                    )}
+                </TouchableOpacity>
+                ))
             )}
           </View>
         )}
@@ -188,21 +202,32 @@ export default function QuoteHistoryScreen({ car, onBack }) {
               </View>
             ) : (
               repairs.map(repair => (
-                <View key={repair.id} style={styles.repairCard}>
-                  <View style={styles.repairHeader}>
+                <TouchableOpacity
+                    key={repair.id}
+                    style={styles.repairCard}
+                    onPress={() => setExpandedRepair(expandedRepair === repair.id ? null : repair.id)}
+                >
+                    <View style={styles.repairHeader}>
                     <Text style={styles.repairName}>{repair.name}</Text>
-                    <TouchableOpacity onPress={() => deleteRepair(repair.id)}>
-                      <Text style={styles.deleteBtn}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.repairDetails}>
-                    {repair.date ? <Text style={styles.repairDetail}>📅 {repair.date}</Text> : null}
-                    {repair.cost ? <Text style={styles.repairDetail}>💰 ${repair.cost}</Text> : null}
-                    {repair.mileage ? <Text style={styles.repairDetail}>🚗 {repair.mileage} mi</Text> : null}
-                  </View>
-                  {repair.notes ? <Text style={styles.repairNotes}>{repair.notes}</Text> : null}
-                </View>
-              ))
+                    <View style={styles.quoteCardActions}>
+                        <Text style={styles.expandHint}>{expandedRepair === repair.id ? "▲" : "▼"}</Text>
+                        <TouchableOpacity onPress={() => deleteRepair(repair.id)} style={{marginLeft: 12}}>
+                        <Text style={styles.deleteBtn}>✕</Text>
+                        </TouchableOpacity>
+                    </View>
+                    </View>
+                    {expandedRepair === repair.id && (
+                    <View>
+                        <View style={styles.repairDetails}>
+                        {repair.date ? <Text style={styles.repairDetail}>📅 {repair.date}</Text> : null}
+                        {repair.cost ? <Text style={styles.repairDetail}>💰 ${repair.cost}</Text> : null}
+                        {repair.mileage ? <Text style={styles.repairDetail}>🚗 {repair.mileage} mi</Text> : null}
+                        </View>
+                        {repair.notes ? <Text style={styles.repairNotes}>{repair.notes}</Text> : null}
+                    </View>
+                    )}
+                </TouchableOpacity>
+                ))
             )}
           </View>
         )}
@@ -343,4 +368,7 @@ const styles = StyleSheet.create({
   notesInput: { height: 80, textAlignVertical: "top" },
   saveBtn: { backgroundColor: "#f5a623", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 4, marginBottom: 20 },
   saveBtnText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 16 },
+  quoteCardActions: { flexDirection: "row", alignItems: "center" },
+expandHint: { color: "#f5a623", fontSize: 12 },
+quoteAnalysisFull: { color: "#e8e6e0", fontSize: 13, lineHeight: 20, marginTop: 8 },
 });
