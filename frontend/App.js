@@ -6,6 +6,7 @@ import CarProfileScreen from "./CarProfileScreen";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking } from "react-native";
+import MechanicQuoteScreen from "./MechanicQuoteScreen";
 
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
@@ -39,6 +40,7 @@ export default function App() {
   const [diagnosing, setDiagnosing] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [car, setCar] = useState(null);
+  const [showQuoteAnalyzer, setShowQuoteAnalyzer] = useState(false);
 
   useEffect(() => {
     checkSavedLogin();
@@ -162,6 +164,10 @@ export default function App() {
     }} />;
   }
 
+  if (showQuoteAnalyzer) {
+    return <MechanicQuoteScreen car={car} onBack={() => setShowQuoteAnalyzer(false)} />;
+  }
+  
   if (!car) {
     return <CarProfileScreen onSave={async (carData) => {
       await SecureStore.setItemAsync("userCar", JSON.stringify(carData));
@@ -172,12 +178,17 @@ export default function App() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>AutoDoc</Text>
-        <Text style={styles.carInfo}>{car.year} {car.make} {car.model}</Text>
+        <View>
+          <Text style={styles.headerText}>AutoDoc</Text>
+          <Text style={styles.carInfo}>{car.year} {car.make} {car.model}</Text>
+        </View>
+        <TouchableOpacity style={styles.quoteBtn} onPress={() => setShowQuoteAnalyzer(true)}>
+          <Text style={styles.quoteBtnText}>📄 Quote</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.signOut}>Sign Out</Text>
         </TouchableOpacity>
-      </View>
+    </View>
 
       <ScrollView style={styles.chatArea}>
         {messages.length === 0 && (
@@ -281,4 +292,6 @@ const styles = StyleSheet.create({
   videoItem: { backgroundColor: "#0d0d0e", borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: "#2e2e33" },
   videoTitle: { color: "#e8e6e0", fontSize: 13, fontWeight: "500", marginBottom: 4 },
   videoChannel: { color: "#f5a623", fontSize: 12 },
+  quoteBtn: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: "#2e2e33" },
+  quoteBtnText: { color: "#f5a623", fontSize: 12, fontWeight: "500" },
 });
