@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from backend.services.claude_service import diagnose_car
 from backend.services.supabase_service import save_diagnosis
 from backend.services.nhtsa_service import get_recalls, format_recalls_for_claude
+from backend.services.youtube_service import get_repair_videos
 import base64
 
 router = APIRouter()
@@ -35,9 +36,20 @@ async def diagnose(request: DiagnoseRequest):
         recall_info=recall_info
     )
 
+    videos = get_repair_videos(
+        diagnosis=request.text or "car repair",
+        car_year=request.car_year,
+        car_make=request.car_make,
+        car_model=request.car_model
+    )
+
     save_diagnosis(
         problem_text=request.text or "Image uploaded",
         diagnosis=result
     )
 
-    return {"diagnosis": result, "recalls": recall_info}
+    return {
+        "diagnosis": result,
+        "recalls": recall_info,
+        "videos": videos
+    }

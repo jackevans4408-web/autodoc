@@ -1,11 +1,11 @@
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image } from "react-native";
 import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
 import LoginScreen from "./LoginScreen";
 import CarProfileScreen from "./CarProfileScreen";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking } from "react-native";
 
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
@@ -127,7 +127,12 @@ export default function App() {
         body: JSON.stringify(body),
       });
       const data = await response.json();
-      setMessages(prev => [...prev, { role: "bot", text: data.diagnosis }]);
+      setMessages(prev => [...prev, { 
+        role: "bot", 
+        text: data.diagnosis,
+        videos: data.videos 
+      }]);
+
     } catch (error) {
       setMessages(prev => [...prev, { role: "bot", text: "Error: " + error.message }]);
     }
@@ -182,12 +187,27 @@ export default function App() {
           <View key={i} style={[styles.bubble, msg.role === "user" ? styles.userBubble : styles.botBubble]}>
             {msg.image && <Image source={{ uri: msg.image }} style={styles.messageImage} />}
             {msg.text ? (
-              msg.role === "bot" ? (
-                <FormattedDiagnosis text={msg.text} />
-              ) : (
-                <Text style={styles.userText}>{msg.text}</Text>
-              )
-            ) : null}
+  msg.role === "bot" ? (
+    <FormattedDiagnosis text={msg.text} />
+  ) : (
+    <Text style={styles.userText}>{msg.text}</Text>
+  )
+) : null}
+{msg.videos && msg.videos.length > 0 && (
+  <View style={styles.videosContainer}>
+    <Text style={styles.videosHeader}>🎥 DIY Repair Videos</Text>
+    {msg.videos.map((video, i) => (
+      <TouchableOpacity 
+        key={i} 
+        style={styles.videoItem}
+        onPress={() => Linking.openURL(video.url)}
+      >
+        <Text style={styles.videoTitle}>{video.title}</Text>
+        <Text style={styles.videoChannel}>{video.channel} • Watch on YouTube →</Text>
+      </TouchableOpacity>
+    ))}
+  </View>
+)}
           </View>
         ))}
         {diagnosing && <ActivityIndicator size="large" color="#f5a623" style={{ margin: 20 }} />}
@@ -256,4 +276,9 @@ const styles = StyleSheet.create({
   diagHeader: { color: "#f5a623", fontWeight: "bold", fontSize: 15, marginTop: 8, marginBottom: 2 },
   diagUrgent: { color: "#e05a5a", fontWeight: "600" },
   diagCost: { color: "#4caf7d", fontWeight: "500" },
+  videosContainer: { marginTop: 12, borderTopWidth: 1, borderTopColor: "#2e2e33", paddingTop: 12 },
+  videosHeader: { color: "#f5a623", fontWeight: "bold", fontSize: 14, marginBottom: 8 },
+  videoItem: { backgroundColor: "#0d0d0e", borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: "#2e2e33" },
+  videoTitle: { color: "#e8e6e0", fontSize: 13, fontWeight: "500", marginBottom: 4 },
+  videoChannel: { color: "#f5a623", fontSize: 12 },
 });
