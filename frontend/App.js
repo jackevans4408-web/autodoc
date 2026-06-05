@@ -1,13 +1,12 @@
 import { StatusBar } from "expo-status-bar";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
 import LoginScreen from "./LoginScreen";
 import CarProfileScreen from "./CarProfileScreen";
-import MechanicQuoteScreen from "./MechanicQuoteScreen";
+import QuoteHistoryScreen from "./QuoteHistoryScreen";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
-import RepairHistoryScreen from "./RepairHistoryScreen";
 
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
@@ -41,6 +40,7 @@ export default function App() {
   const [diagnosing, setDiagnosing] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [car, setCar] = useState(null);
+  const [showQuoteHistory, setShowQuoteHistory] = useState(false);
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
   const [pendingMessage, setPendingMessage] = useState(null);
   const [pendingImage, setPendingImage] = useState(null);
@@ -48,7 +48,6 @@ export default function App() {
   const [diffYear, setDiffYear] = useState("");
   const [diffMake, setDiffMake] = useState("");
   const [diffModel, setDiffModel] = useState("");
-  const [showQuoteHistory, setShowQuoteHistory] = useState(false);
 
   useEffect(() => {
     checkSavedLogin();
@@ -181,15 +180,7 @@ export default function App() {
   }
 
   if (showQuoteHistory) {
-  return <QuoteHistoryScreen car={car} onBack={() => setShowQuoteHistory(false)} />;
-  }
-
-  if (showRepairHistory) {
-    return <RepairHistoryScreen car={car} onBack={() => setShowRepairHistory(false)} />;
-  }
-
-  if (showQuoteAnalyzer) {
-    return <MechanicQuoteScreen car={car} onBack={() => setShowQuoteAnalyzer(false)} />;
+    return <QuoteHistoryScreen car={car} onBack={() => setShowQuoteHistory(false)} />;
   }
 
   return (
@@ -202,17 +193,13 @@ export default function App() {
           <Text style={styles.headerText}>AutoDoc</Text>
           <Text style={styles.carInfo}>{car.year} {car.make} {car.model}</Text>
         </View>
-          <TouchableOpacity style={styles.quoteBtn} onPress={() => setShowQuoteHistory(true)}>
-            <Text style={styles.quoteBtnText}>📄 Quote/History</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={signOut}>
-            <Text style={styles.signOut}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.quoteBtn} onPress={() => setShowQuoteHistory(true)}>
+          <Text style={styles.quoteBtnText}>📄 Quote/History</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.signOut}>Sign Out</Text>
         </TouchableOpacity>
-      
+      </View>
 
       <ScrollView style={styles.chatArea} keyboardShouldPersistTaps="handled">
         {messages.length === 0 && (
@@ -291,9 +278,7 @@ export default function App() {
 
       {showVehicleSelector && (
         <View style={styles.vehicleModal}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-          >
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
             <View style={styles.vehicleModalContent}>
               <Text style={styles.vehicleModalTitle}>Which vehicle?</Text>
               <TouchableOpacity style={styles.vehicleOption} onPress={() => sendMessage(car)}>
@@ -305,47 +290,21 @@ export default function App() {
                 </TouchableOpacity>
               ) : (
                 <View style={styles.diffVehicleForm}>
-                  <TextInput
-                    style={styles.diffInput}
-                    placeholder="Year (e.g. 2020)"
-                    placeholderTextColor="#888"
-                    value={diffYear}
-                    onChangeText={setDiffYear}
-                    keyboardType="numeric"
-                    maxLength={4}
-                  />
-                  <TextInput
-                    style={styles.diffInput}
-                    placeholder="Make (e.g. Toyota)"
-                    placeholderTextColor="#888"
-                    value={diffMake}
-                    onChangeText={setDiffMake}
-                  />
-                  <TextInput
-                    style={styles.diffInput}
-                    placeholder="Model (e.g. Camry)"
-                    placeholderTextColor="#888"
-                    value={diffModel}
-                    onChangeText={setDiffModel}
-                  />
-                  <TouchableOpacity
-                    style={styles.vehicleOption}
-                    onPress={() => sendMessage({ year: diffYear, make: diffMake, model: diffModel })}
-                  >
+                  <TextInput style={styles.diffInput} placeholder="Year (e.g. 2020)" placeholderTextColor="#888" value={diffYear} onChangeText={setDiffYear} keyboardType="numeric" maxLength={4} />
+                  <TextInput style={styles.diffInput} placeholder="Make (e.g. Toyota)" placeholderTextColor="#888" value={diffMake} onChangeText={setDiffMake} />
+                  <TextInput style={styles.diffInput} placeholder="Model (e.g. Camry)" placeholderTextColor="#888" value={diffModel} onChangeText={setDiffModel} />
+                  <TouchableOpacity style={styles.vehicleOption} onPress={() => sendMessage({ year: diffYear, make: diffMake, model: diffModel })}>
                     <Text style={styles.vehicleOptionText}>Diagnose This Car →</Text>
                   </TouchableOpacity>
                 </View>
               )}
-              <TouchableOpacity
-                style={styles.vehicleCancel}
-                onPress={() => {
-                  setShowVehicleSelector(false);
-                  setPendingMessage(null);
-                  setPendingImage(null);
-                  setDifferentVehicle(false);
-                  setDiffYear(""); setDiffMake(""); setDiffModel("");
-                }}
-              >
+              <TouchableOpacity style={styles.vehicleCancel} onPress={() => {
+                setShowVehicleSelector(false);
+                setPendingMessage(null);
+                setPendingImage(null);
+                setDifferentVehicle(false);
+                setDiffYear(""); setDiffMake(""); setDiffModel("");
+              }}>
                 <Text style={styles.vehicleCancelText}>Cancel</Text>
               </TouchableOpacity>
             </View>

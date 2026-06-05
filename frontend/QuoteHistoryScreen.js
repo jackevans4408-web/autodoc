@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 
+
 export default function QuoteHistoryScreen({ car, onBack }) {
   const [activeTab, setActiveTab] = useState("quotes");
   const [repairs, setRepairs] = useState([]);
@@ -17,6 +18,7 @@ export default function QuoteHistoryScreen({ car, onBack }) {
   const [repairCost, setRepairCost] = useState("");
   const [repairMileage, setRepairMileage] = useState("");
   const [repairNotes, setRepairNotes] = useState("");
+  const [showQuoteHistory, setShowQuoteHistory] = useState(false);
 
   useEffect(() => {
     loadData();
