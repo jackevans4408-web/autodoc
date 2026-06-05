@@ -7,6 +7,7 @@ import MechanicQuoteScreen from "./MechanicQuoteScreen";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
+import RepairHistoryScreen from "./RepairHistoryScreen";
 
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
@@ -48,6 +49,7 @@ export default function App() {
   const [diffYear, setDiffYear] = useState("");
   const [diffMake, setDiffMake] = useState("");
   const [diffModel, setDiffModel] = useState("");
+  const [showRepairHistory, setShowRepairHistory] = useState(false);
 
   useEffect(() => {
     checkSavedLogin();
@@ -179,6 +181,10 @@ export default function App() {
     }} />;
   }
 
+  if (showRepairHistory) {
+    return <RepairHistoryScreen car={car} onBack={() => setShowRepairHistory(false)} />;
+  }
+
   if (showQuoteAnalyzer) {
     return <MechanicQuoteScreen car={car} onBack={() => setShowQuoteAnalyzer(false)} />;
   }
@@ -193,8 +199,8 @@ export default function App() {
           <Text style={styles.headerText}>AutoDoc</Text>
           <Text style={styles.carInfo}>{car.year} {car.make} {car.model}</Text>
         </View>
-        <TouchableOpacity style={styles.quoteBtn} onPress={() => setShowQuoteAnalyzer(true)}>
-          <Text style={styles.quoteBtnText}>📄 Quote</Text>
+        <TouchableOpacity style={styles.quoteBtn} onPress={() => setShowRepairHistory(true)}>
+           <Text style={styles.quoteBtnText}>🔧 History</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.signOut}>Sign Out</Text>
