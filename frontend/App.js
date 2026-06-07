@@ -65,8 +65,8 @@ function FormattedDiagnosis({ text }) {
       const parts = cleaned.split(':');
       const causeName = parts[0]?.trim();
       const costPart = parts.slice(1).join(':').trim();
-      const diyMatch = costPart.match(/DIY\s*\$[\d,\-–]+/i);
-      const shopMatch = costPart.match(/Shop\s*\$[\d,\-–]+/i);
+      const diyMatch = costPart.match(/DIY\s*\$[\d,\.\-–]+/i);
+      const shopMatch = costPart.match(/Shop\s*\$[\d,\.\-–]+/i);
       const diy = diyMatch ? diyMatch[0].replace(/DIY\s*/i, '').trim() : '';
       const shop = shopMatch ? shopMatch[0].replace(/Shop\s*/i, '').trim() : '';
 
