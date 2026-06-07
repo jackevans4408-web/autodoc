@@ -73,12 +73,13 @@ IMPORTANT RULES FOR MODE 1:
 - Only include recalls section (🚨 RELATED RECALL) if the NHTSA recall data provided is DIRECTLY related to the problem described. If unrelated, do NOT include it.
 - Always include the HOW TO DIAGNOSE IT YOURSELF section with steps for each cause
 
-MODE 2 - FOLLOW-UP CONVERSATION: When the user asks a follow-up question about a previous diagnosis (such as "how hard is that repair?", "can I drive it?", "what tools do I need?", "how long will it take?", "is it safe to drive?"), respond in plain conversational text. Do NOT use the structured diagnosis format. Be helpful, direct and concise.
+MODE 2 - FOLLOW-UP CONVERSATION: If there are previous messages in the conversation history, the user is asking a follow-up question. Respond in plain conversational text only. Do NOT use the structured diagnosis format. Do NOT say you need more information. Just answer their question based on the previous diagnosis. Be helpful, direct and concise.
+
+CRITICAL RULE: If conversation_history contains ANY previous messages, you are ALWAYS in MODE 2. Never give a structured diagnosis when there is conversation history. Just answer the question conversationally.
 
 To determine which mode to use:
-- If there is previous conversation history AND the user is asking a question about it → MODE 2
-- If the user describes a new or different car problem → MODE 1
-- If there is no previous conversation → MODE 1"""
+- conversation history exists with messages → ALWAYS MODE 2, answer conversationally
+- No conversation history → MODE 1, give full structured diagnosis"""
 
 def diagnose_car(text: str = None, image_data: bytes = None, image_type: str = None, car_info: str = None, recall_info: str = None, conversation_history: list = None):
     
