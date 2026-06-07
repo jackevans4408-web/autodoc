@@ -13,8 +13,6 @@ import * as SecureStore from "expo-secure-store";
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
   let inCostSection = false;
-  let inDiagSection = false;
-
   const elements = [];
   let i = 0;
 
@@ -39,7 +37,6 @@ function FormattedDiagnosis({ text }) {
     const isStep = /^Step \d+:/i.test(cleaned);
     const isNumbered = /^\d+\./.test(cleaned);
     const isCostLine = inCostSection && cleaned.includes('DIY') && cleaned.includes('Shop') && !isSectionHeader;
-    const isCauseName = inCostSection && !isBullet && !isNumbered && !isSectionHeader && !isCostLine;
 
     const isCritical = isUrgency && (cleaned.toLowerCase().includes('critical') || cleaned.toLowerCase().includes('high'));
     const isMedium = isUrgency && cleaned.toLowerCase().includes('medium');
@@ -65,8 +62,8 @@ function FormattedDiagnosis({ text }) {
       const parts = cleaned.split(':');
       const causeName = parts[0]?.trim();
       const costPart = parts.slice(1).join(':').trim();
-      const diyMatch = costPart.match(/DIY\s*\$[\d,\.\-–]+/i);
-      const shopMatch = costPart.match(/Shop\s*\$[\d,\.\-–]+/i);
+      const diyMatch = costPart.match(/DIY\s*\$[\d,\.]+[-–]\$?[\d,\.]+/i);
+      const shopMatch = costPart.match(/Shop\s*\$[\d,\.]+[-–]\$?[\d,\.]+/i);
       const diy = diyMatch ? diyMatch[0].replace(/DIY\s*/i, '').trim() : '';
       const shop = shopMatch ? shopMatch[0].replace(/Shop\s*/i, '').trim() : '';
 
@@ -152,7 +149,6 @@ export default function App() {
       const savedSession = await SecureStore.getItemAsync("userSession");
       const savedCar = await SecureStore.getItemAsync("userCar");
       const savedCars = await SecureStore.getItemAsync("userCars");
-
       if (savedSession) {
         setSession(JSON.parse(savedSession));
         if (savedCar) {
@@ -219,10 +215,11 @@ export default function App() {
     setSelectedImage(null);
   };
 
-  const sendMessage = async (overrideCar = null) => {
-    const userMessage = pendingMessage !== null ? pendingMessage : message;
+  const sendMessage = async (overrideCar = null, directMessage = null) => {
+    const userMessage = directMessage !== null ? directMessage : (pendingMessage !== null ? pendingMessage : message);
     const userImage = pendingImage !== null ? pendingImage : selectedImage;
     if (!userMessage.trim() && !userImage) return;
+
     setMessage("");
     setSelectedImage(null);
     setPendingMessage(null);
@@ -231,11 +228,13 @@ export default function App() {
     setDifferentVehicle(false);
     setDiffYear(""); setDiffMake(""); setDiffModel("");
 
-    const newUserMessage = { role: "user", text: userMessage, image: userImage?.uri };
-    setMessages(prev => [...prev, newUserMessage]);
+    setMessages(prev => [...prev, { role: "user", text: userMessage, image: userImage?.uri }]);
     setDiagnosing(true);
 
     const activeCar = overrideCar || car;
+    const currentHistory = [...conversationHistory];
+
+    console.log("Sending with history length:", currentHistory.length);
 
     try {
       const body = {
@@ -243,7 +242,7 @@ export default function App() {
         car_year: activeCar?.year,
         car_make: activeCar?.make,
         car_model: activeCar?.model,
-        conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
+        conversation_history: currentHistory.length > 0 ? currentHistory : null,
       };
       if (userImage?.base64) {
         body.image_base64 = userImage.base64;
@@ -256,11 +255,13 @@ export default function App() {
       });
       const data = await response.json();
 
-      setConversationHistory(prev => [
-        ...prev,
+      const updatedHistory = [
+        ...currentHistory,
         { role: "user", content: userMessage },
         { role: "assistant", content: data.diagnosis }
-      ]);
+      ];
+      setConversationHistory(updatedHistory);
+      console.log("Updated history length:", updatedHistory.length);
 
       setMessages(prev => [...prev, {
         role: "bot",
@@ -369,11 +370,7 @@ export default function App() {
         </View>
       </View>
 
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.chatArea}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView ref={scrollViewRef} style={styles.chatArea} keyboardShouldPersistTaps="handled">
         {messages.length === 0 && (
           <View style={styles.emptyChat}>
             <Text style={styles.emptyChatIcon}>🔧</Text>
@@ -466,9 +463,15 @@ export default function App() {
           if (!message.trim() && !selectedImage) return;
           Keyboard.dismiss();
           setShowMediaOptions(false);
-          setPendingMessage(message);
-          setPendingImage(selectedImage);
-          setShowVehicleSelector(true);
+          if (conversationHistory.length > 0) {
+            const msgToSend = message;
+            setMessage("");
+            sendMessage(car, msgToSend);
+          } else {
+            setPendingMessage(message);
+            setPendingImage(selectedImage);
+            setShowVehicleSelector(true);
+          }
         }}>
           <Text style={styles.sendText}>↑</Text>
         </TouchableOpacity>
