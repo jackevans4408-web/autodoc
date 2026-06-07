@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import LoginScreen from "./LoginScreen";
@@ -12,26 +12,111 @@ import * as SecureStore from "expo-secure-store";
 
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
-  return (
-    <View>
-      {lines.map((line, i) => {
-        const isHeader = line.startsWith('##') || line.startsWith('**') && line.endsWith('**');
-        const isUrgent = line.toLowerCase().includes('critical') || line.toLowerCase().includes('urgent') || line.toLowerCase().includes('high');
-        const isCost = line.toLowerCase().includes('$') || line.toLowerCase().includes('cost') || line.toLowerCase().includes('price');
-        const cleaned = line.replace(/##\s*/g, '').replace(/\*\*/g, '').replace(/^-\s*/, '• ');
-        return (
-          <Text key={i} style={[
-            styles.botText,
-            isHeader && styles.diagHeader,
-            isUrgent && styles.diagUrgent,
-            isCost && styles.diagCost,
-          ]}>
-            {cleaned}
-          </Text>
-        );
-      })}
-    </View>
-  );
+  let inCostSection = false;
+  let inDiagSection = false;
+
+  const elements = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const cleaned = line.replace(/##?\s*/g, '').trim();
+    if (!cleaned) { i++; continue; }
+
+    if (cleaned.startsWith('💰')) inCostSection = true;
+    else if (cleaned.startsWith('🔧') || cleaned.startsWith('📋') ||
+      cleaned.startsWith('⚠️') || cleaned.startsWith('🛠') ||
+      cleaned.startsWith('🔍') || cleaned.startsWith('🚨')) {
+      inCostSection = false;
+    }
+
+    const isUrgency = cleaned.toLowerCase().includes('urgency:');
+    const isSectionHeader = cleaned.startsWith('🔧') || cleaned.startsWith('📋') ||
+      cleaned.startsWith('💰') || cleaned.startsWith('⚠️') ||
+      cleaned.startsWith('🛠') || cleaned.startsWith('🔍') ||
+      cleaned.startsWith('🚨') || cleaned.startsWith('🔴');
+    const isBullet = cleaned.startsWith('•') || cleaned.startsWith('-');
+    const isStep = /^Step \d+:/i.test(cleaned);
+    const isNumbered = /^\d+\./.test(cleaned);
+    const isCostLine = inCostSection && cleaned.includes('DIY') && cleaned.includes('Shop') && !isSectionHeader;
+    const isCauseName = inCostSection && !isBullet && !isNumbered && !isSectionHeader && !isCostLine;
+
+    const isCritical = isUrgency && (cleaned.toLowerCase().includes('critical') || cleaned.toLowerCase().includes('high'));
+    const isMedium = isUrgency && cleaned.toLowerCase().includes('medium');
+    const isLow = isUrgency && cleaned.toLowerCase().includes('low');
+
+    if (cleaned.startsWith('💰') && isSectionHeader) {
+      elements.push(
+        <View key={i}>
+          <Text style={styles.sectionHeader}>{cleaned}</Text>
+          <View style={styles.costHeaderRow}>
+            <Text style={styles.costHeaderCause}>Issue</Text>
+            <View style={styles.costCols}>
+              <Text style={styles.costHeaderDiy}>DIY</Text>
+              <Text style={styles.costHeaderShop}>Shop</Text>
+            </View>
+          </View>
+        </View>
+      );
+      i++; continue;
+    }
+
+    if (isCostLine) {
+      const parts = cleaned.split(':');
+      const causeName = parts[0]?.trim();
+      const costPart = parts.slice(1).join(':').trim();
+      const diyMatch = costPart.match(/DIY\s*\$[\d,\-–]+/i);
+      const shopMatch = costPart.match(/Shop\s*\$[\d,\-–]+/i);
+      const diy = diyMatch ? diyMatch[0].replace(/DIY\s*/i, '').trim() : '';
+      const shop = shopMatch ? shopMatch[0].replace(/Shop\s*/i, '').trim() : '';
+
+      elements.push(
+        <View key={i} style={styles.costRow}>
+          <Text style={styles.costCause} numberOfLines={2}>{causeName}</Text>
+          <View style={styles.costCols}>
+            <Text style={styles.costDiy}>{diy}</Text>
+            <Text style={styles.costShop}>{shop}</Text>
+          </View>
+        </View>
+      );
+      i++; continue;
+    }
+
+    if (isBullet) {
+      elements.push(
+        <View key={i} style={styles.bulletRow}>
+          <Text style={styles.bulletSymbol}>•</Text>
+          <Text style={styles.bulletContent}>{cleaned.replace(/^[•\-]\s*/, '')}</Text>
+        </View>
+      );
+      i++; continue;
+    }
+
+    if (isStep) {
+      elements.push(
+        <View key={i} style={styles.stepRow}>
+          <Text style={styles.stepText}>{cleaned}</Text>
+        </View>
+      );
+      i++; continue;
+    }
+
+    elements.push(
+      <Text key={i} style={[
+        styles.botText,
+        isSectionHeader && styles.sectionHeader,
+        isCritical && styles.urgencyCritical,
+        isMedium && styles.urgencyMedium,
+        isLow && styles.urgencyLow,
+        isNumbered && styles.numberedText,
+      ]}>
+        {cleaned}
+      </Text>
+    );
+    i++;
+  }
+
+  return <View style={{ paddingVertical: 4 }}>{elements}</View>;
 }
 
 export default function App() {
@@ -55,6 +140,8 @@ export default function App() {
   const [diffMake, setDiffMake] = useState("");
   const [diffModel, setDiffModel] = useState("");
   const [showMediaOptions, setShowMediaOptions] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState([]);
+  const scrollViewRef = useRef(null);
 
   useEffect(() => {
     checkSavedLogin();
@@ -68,12 +155,10 @@ export default function App() {
 
       if (savedSession) {
         setSession(JSON.parse(savedSession));
-
         if (savedCar) {
           const parsedCar = JSON.parse(savedCar);
           if (!parsedCar.id) parsedCar.id = Date.now().toString();
           setCar(parsedCar);
-
           if (savedCars) {
             setCars(JSON.parse(savedCars));
           } else {
@@ -127,6 +212,13 @@ export default function App() {
     }
   };
 
+  const startNewDiagnosis = () => {
+    setMessages([]);
+    setConversationHistory([]);
+    setMessage("");
+    setSelectedImage(null);
+  };
+
   const sendMessage = async (overrideCar = null) => {
     const userMessage = pendingMessage !== null ? pendingMessage : message;
     const userImage = pendingImage !== null ? pendingImage : selectedImage;
@@ -138,15 +230,20 @@ export default function App() {
     setShowVehicleSelector(false);
     setDifferentVehicle(false);
     setDiffYear(""); setDiffMake(""); setDiffModel("");
-    setMessages(prev => [...prev, { role: "user", text: userMessage, image: userImage?.uri }]);
+
+    const newUserMessage = { role: "user", text: userMessage, image: userImage?.uri };
+    setMessages(prev => [...prev, newUserMessage]);
     setDiagnosing(true);
+
     const activeCar = overrideCar || car;
+
     try {
       const body = {
         text: userMessage,
         car_year: activeCar?.year,
         car_make: activeCar?.make,
-        car_model: activeCar?.model
+        car_model: activeCar?.model,
+        conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
       };
       if (userImage?.base64) {
         body.image_base64 = userImage.base64;
@@ -158,11 +255,21 @@ export default function App() {
         body: JSON.stringify(body),
       });
       const data = await response.json();
+
+      setConversationHistory(prev => [
+        ...prev,
+        { role: "user", content: userMessage },
+        { role: "assistant", content: data.diagnosis }
+      ]);
+
       setMessages(prev => [...prev, {
         role: "bot",
         text: data.diagnosis,
         videos: data.videos
       }]);
+
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+
     } catch (error) {
       setMessages(prev => [...prev, { role: "bot", text: "Error: " + error.message }]);
     }
@@ -177,6 +284,7 @@ export default function App() {
     setCar(null);
     setCars([]);
     setMessages([]);
+    setConversationHistory([]);
   };
 
   const selectCar = async (selectedCar) => {
@@ -184,6 +292,7 @@ export default function App() {
     await SecureStore.setItemAsync("userCar", JSON.stringify(selectedCar));
     setShowCarSelector(false);
     setMessages([]);
+    setConversationHistory([]);
   };
 
   const deleteCar = async (carId) => {
@@ -238,11 +347,7 @@ export default function App() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior="padding"
-      keyboardVerticalOffset={0}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior="padding">
       <View style={styles.header}>
         <Text style={styles.headerText}>AutoDoc</Text>
         <TouchableOpacity style={styles.carSelector} onPress={() => setShowCarSelector(true)}>
@@ -264,7 +369,11 @@ export default function App() {
         </View>
       </View>
 
-      <ScrollView style={styles.chatArea} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.chatArea}
+        keyboardShouldPersistTaps="handled"
+      >
         {messages.length === 0 && (
           <View style={styles.emptyChat}>
             <Text style={styles.emptyChatIcon}>🔧</Text>
@@ -272,6 +381,13 @@ export default function App() {
             <Text style={styles.emptyChatSub}>Describe your car problem, upload a photo, or attach a mechanic quote</Text>
           </View>
         )}
+
+        {messages.length > 0 && (
+          <TouchableOpacity style={styles.newDiagnosisBtn} onPress={startNewDiagnosis}>
+            <Text style={styles.newDiagnosisBtnText}>+ New Diagnosis</Text>
+          </TouchableOpacity>
+        )}
+
         {messages.map((msg, i) => (
           <View key={i} style={[styles.bubble, msg.role === "user" ? styles.userBubble : styles.botBubble]}>
             {msg.image && <Image source={{ uri: msg.image }} style={styles.messageImage} />}
@@ -295,6 +411,7 @@ export default function App() {
             )}
           </View>
         ))}
+
         {diagnosing && (
           <View style={styles.typingIndicator}>
             <ActivityIndicator size="small" color="#f5a623" />
@@ -341,7 +458,7 @@ export default function App() {
           style={styles.input}
           value={message}
           onChangeText={setMessage}
-          placeholder="Describe your car issue..."
+          placeholder={conversationHistory.length > 0 ? "Ask a follow-up question..." : "Describe your car issue..."}
           placeholderTextColor="#888"
           multiline
         />
@@ -417,7 +534,8 @@ const styles = StyleSheet.create({
   carSelectorArrow: { color: "#888", fontSize: 9 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
   quoteHistoryBtn: { color: "#f5a623", fontSize: 11, fontWeight: "500" },
-  shopsIcon: { fontSize: 16 },
+  shopsBtn: { backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: "#2e2e33" },
+  shopsBtnText: { color: "#e8e6e0", fontSize: 11, fontWeight: "500" },
   menuBtn: { width: 28, height: 20, justifyContent: "space-between" },
   menuLine: { width: 20, height: 2, backgroundColor: "#e8e6e0", borderRadius: 2 },
   chatArea: { flex: 1, padding: 16 },
@@ -425,12 +543,33 @@ const styles = StyleSheet.create({
   emptyChatIcon: { fontSize: 48, marginBottom: 12 },
   emptyChatTitle: { color: "#f5a623", fontSize: 24, fontWeight: "bold", marginBottom: 8 },
   emptyChatSub: { color: "#888", fontSize: 14, textAlign: "center", lineHeight: 20, paddingHorizontal: 32 },
-  bubble: { borderRadius: 16, padding: 12, marginBottom: 12, maxWidth: "88%" },
+  newDiagnosisBtn: { alignSelf: "center", backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: "#f5a62344", marginBottom: 12 },
+  newDiagnosisBtnText: { color: "#f5a623", fontSize: 13, fontWeight: "500" },
+  bubble: { borderRadius: 16, padding: 12, marginBottom: 12, maxWidth: "96%" },
   userBubble: { backgroundColor: "#222226", alignSelf: "flex-end" },
   botBubble: { backgroundColor: "#161618", alignSelf: "flex-start", borderWidth: 1, borderColor: "#2e2e33" },
   userText: { color: "#e8e6e0", fontSize: 14 },
   botText: { color: "#e8e6e0", fontSize: 14, lineHeight: 22 },
   messageImage: { width: 200, height: 150, borderRadius: 8, marginBottom: 8 },
+  sectionHeader: { color: "#f5a623", fontWeight: "bold", fontSize: 15, marginTop: 14, marginBottom: 6 },
+  urgencyCritical: { color: "#e05a5a", fontWeight: "bold", fontSize: 15, marginBottom: 8 },
+  urgencyMedium: { color: "#f5a623", fontWeight: "bold", fontSize: 15, marginBottom: 8 },
+  urgencyLow: { color: "#4caf7d", fontWeight: "bold", fontSize: 15, marginBottom: 8 },
+  bulletRow: { flexDirection: "row", marginBottom: 4, paddingRight: 8 },
+  bulletSymbol: { color: "#e8e6e0", fontSize: 14, marginRight: 6, lineHeight: 22 },
+  bulletContent: { color: "#e8e6e0", fontSize: 14, lineHeight: 22, flex: 1 },
+  stepRow: { marginBottom: 4 },
+  stepText: { color: "#e8e6e0", fontSize: 14, lineHeight: 22 },
+  numberedText: { color: "#e8e6e0", fontSize: 14, lineHeight: 22, marginBottom: 4, fontWeight: "500" },
+  costHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: "#f5a62344", marginBottom: 4 },
+  costHeaderCause: { color: "#888", fontSize: 11, fontWeight: "600", textTransform: "uppercase", flex: 1 },
+  costCols: { flexDirection: "row", gap: 8 },
+  costHeaderDiy: { color: "#4caf7d", fontSize: 11, fontWeight: "600", textTransform: "uppercase", width: 75, textAlign: "right" },
+  costHeaderShop: { color: "#f5a623", fontSize: 11, fontWeight: "600", textTransform: "uppercase", width: 80, textAlign: "right" },
+  costRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
+  costCause: { color: "#e8e6e0", fontSize: 13, flex: 1, marginRight: 8, lineHeight: 18 },
+  costDiy: { color: "#4caf7d", fontSize: 13, fontWeight: "500", width: 75, textAlign: "right" },
+  costShop: { color: "#f5a623", fontSize: 13, fontWeight: "500", width: 80, textAlign: "right" },
   typingIndicator: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12 },
   typingText: { color: "#888", fontSize: 13 },
   imagePreview: { flexDirection: "row", alignItems: "center", padding: 8, paddingHorizontal: 16, backgroundColor: "#161618", borderTopWidth: 1, borderTopColor: "#2e2e33", gap: 8 },
@@ -446,11 +585,8 @@ const styles = StyleSheet.create({
   plusBtnActive: { backgroundColor: "#2e2e33", borderColor: "#f5a623" },
   plusBtnText: { color: "#f5a623", fontSize: 22, fontWeight: "300", lineHeight: 26 },
   input: { flex: 1, backgroundColor: "#1e1e21", color: "#e8e6e0", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", maxHeight: 100 },
-  shopsBtn: { backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: "#2e2e33" },
-  shopsBtnText: { color: "#e8e6e0", fontSize: 11, fontWeight: "500" },
-  diagHeader: { color: "#f5a623", fontWeight: "bold", fontSize: 15, marginTop: 8, marginBottom: 2 },
-  diagUrgent: { color: "#e05a5a", fontWeight: "600" },
-  diagCost: { color: "#4caf7d", fontWeight: "500" },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#f5a623", justifyContent: "center", alignItems: "center" },
+  sendText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 20, marginTop: -2 },
   videosContainer: { marginTop: 12, borderTopWidth: 1, borderTopColor: "#2e2e33", paddingTop: 12 },
   videosHeader: { color: "#f5a623", fontWeight: "bold", fontSize: 14, marginBottom: 8 },
   videoItem: { backgroundColor: "#0d0d0e", borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: "#2e2e33" },
@@ -465,6 +601,4 @@ const styles = StyleSheet.create({
   vehicleCancelText: { color: "#888", fontSize: 14 },
   diffVehicleForm: { marginBottom: 12 },
   diffInput: { backgroundColor: "#0d0d0e", color: "#e8e6e0", borderRadius: 8, padding: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 8 },
-  sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#f5a623", justifyContent: "center", alignItems: "center" },
-  sendText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 20, marginTop: -2 },
 });

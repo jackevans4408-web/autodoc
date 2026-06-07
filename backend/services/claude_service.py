@@ -65,9 +65,10 @@ Respond in this EXACT format only, no deviations:
    • [Detail, max 10 words]
    • [Detail, max 10 words]
 
-💰 COST
-DIY: $[low]-$[high]
-Shop: $[low]-$[high]
+💰 COST ESTIMATE
+[Cause 1 name] — DIY: $[range] | Shop: $[range]
+[Cause 2 name] — DIY: $[range] | Shop: $[range]
+[Cause 3 name] — DIY: $[range] | Shop: $[range]
 
 ⚠️ RECALLS
 [List any active NHTSA recalls. If none: No active recalls found.]
