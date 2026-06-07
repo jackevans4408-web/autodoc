@@ -240,7 +240,8 @@ export default function App() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior="padding"
+      keyboardVerticalOffset={0}
     >
       <View style={styles.header}>
         <Text style={styles.headerText}>AutoDoc</Text>
@@ -440,7 +441,7 @@ const styles = StyleSheet.create({
   mediaOption: { flex: 1, backgroundColor: "#1e1e21", borderRadius: 12, padding: 12, alignItems: "center", borderWidth: 1, borderColor: "#2e2e33" },
   mediaOptionIcon: { fontSize: 22, marginBottom: 4 },
   mediaOptionText: { color: "#888", fontSize: 11 },
-  inputRow: { flexDirection: "row", padding: 12, backgroundColor: "#161618", borderTopWidth: 1, borderTopColor: "#2e2e33", alignItems: "flex-end", gap: 8 },
+  inputRow: { flexDirection: "row", padding: 12, paddingBottom: 8, backgroundColor: "#161618", borderTopWidth: 1, borderTopColor: "#2e2e33", alignItems: "center", gap: 8 },
   plusBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#1e1e21", borderWidth: 1, borderColor: "#2e2e33", justifyContent: "center", alignItems: "center" },
   plusBtnActive: { backgroundColor: "#2e2e33", borderColor: "#f5a623" },
   plusBtnText: { color: "#f5a623", fontSize: 22, fontWeight: "300", lineHeight: 26 },
@@ -464,4 +465,6 @@ const styles = StyleSheet.create({
   vehicleCancelText: { color: "#888", fontSize: 14 },
   diffVehicleForm: { marginBottom: 12 },
   diffInput: { backgroundColor: "#0d0d0e", color: "#e8e6e0", borderRadius: 8, padding: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 8 },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#f5a623", justifyContent: "center", alignItems: "center" },
+  sendText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 20, marginTop: -2 },
 });
