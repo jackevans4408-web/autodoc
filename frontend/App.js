@@ -9,7 +9,6 @@ import QuoteHistoryScreen from "./QuoteHistoryScreen";
 import SettingsScreen from "./SettingsScreen";
 import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
-import * as LocalAuthentication from "expo-local-authentication";
 
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
@@ -68,36 +67,19 @@ export default function App() {
       const savedCars = await SecureStore.getItemAsync("userCars");
 
       if (savedSession) {
-        const hasBiometrics = await LocalAuthentication.hasHardwareAsync();
-        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-        let authSuccess = false;
+        setSession(JSON.parse(savedSession));
 
-        if (hasBiometrics && isEnrolled) {
-          const result = await LocalAuthentication.authenticateAsync({
-            promptMessage: "Sign in to AutoDoc",
-            fallbackLabel: "Use Password",
-          });
-          authSuccess = result.success;
-        } else {
-          authSuccess = true;
-        }
+        if (savedCar) {
+          const parsedCar = JSON.parse(savedCar);
+          if (!parsedCar.id) parsedCar.id = Date.now().toString();
+          setCar(parsedCar);
 
-        if (authSuccess) {
-          setSession(JSON.parse(savedSession));
-          if (savedCar) {
-            const parsedCar = JSON.parse(savedCar);
-            // Make sure car has an id
-            if (!parsedCar.id) parsedCar.id = Date.now().toString();
-            setCar(parsedCar);
-
-            if (savedCars) {
-              setCars(JSON.parse(savedCars));
-            } else {
-              // Migrate old single car to cars array
-              const migratedCars = [parsedCar];
-              setCars(migratedCars);
-              await SecureStore.setItemAsync("userCars", JSON.stringify(migratedCars));
-            }
+          if (savedCars) {
+            setCars(JSON.parse(savedCars));
+          } else {
+            const migratedCars = [parsedCar];
+            setCars(migratedCars);
+            await SecureStore.setItemAsync("userCars", JSON.stringify(migratedCars));
           }
         }
       }

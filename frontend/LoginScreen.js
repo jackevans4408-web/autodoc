@@ -1,6 +1,7 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn, signUp } from "./supabase";
+import * as SecureStore from "expo-secure-store";
 
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -26,7 +27,9 @@ export default function LoginScreen({ onLogin }) {
     }
     setLoading(false);
   };
-
+useEffect(() => {
+    SecureStore.getItemAsync("userSession").then(val => console.log("Saved session value:", val));
+  }, []);
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
@@ -60,6 +63,17 @@ export default function LoginScreen({ onLogin }) {
           <TouchableOpacity style={styles.btn} onPress={handleAuth} disabled={loading}>
             {loading ? <ActivityIndicator color="#0d0d0e" /> : <Text style={styles.btnText}>{isSignUp ? "Sign Up" : "Sign In"}</Text>}
           </TouchableOpacity>
+          
+          <TouchableOpacity onPress={async () => {
+            const SecureStore = await import("expo-secure-store");
+            await SecureStore.deleteItemAsync("userSession");
+            await SecureStore.deleteItemAsync("userCar");
+            await SecureStore.deleteItemAsync("userCars");
+            alert("Storage cleared! Please sign in again.");
+          }} style={{padding: 12, alignItems: "center", marginTop: 8}}>
+            <Text style={{color: "#e05a5a", fontSize: 13}}>Clear saved data</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
             <Text style={styles.switchText}>
               {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
