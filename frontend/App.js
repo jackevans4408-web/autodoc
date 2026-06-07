@@ -243,6 +243,7 @@ export default function App() {
         car_make: activeCar?.make,
         car_model: activeCar?.model,
         conversation_history: currentHistory.length > 0 ? currentHistory : null,
+        is_followup: currentHistory.length > 0,
       };
       if (userImage?.base64) {
         body.image_base64 = userImage.base64;
