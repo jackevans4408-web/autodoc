@@ -252,8 +252,8 @@ export default function App() {
           <TouchableOpacity onPress={() => setShowQuoteHistory(true)}>
             <Text style={styles.quoteHistoryBtn}>📄 Quotes</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me")}>
-            <Text style={styles.shopsIcon}>🔧</Text>
+          <TouchableOpacity style={styles.shopsBtn} onPress={() => Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me")}>
+            <Text style={styles.shopsBtnText}>🔧 Shops</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuBtn} onPress={() => setShowSettings(true)}>
             <View style={styles.menuLine} />
@@ -445,8 +445,8 @@ const styles = StyleSheet.create({
   plusBtnActive: { backgroundColor: "#2e2e33", borderColor: "#f5a623" },
   plusBtnText: { color: "#f5a623", fontSize: 22, fontWeight: "300", lineHeight: 26 },
   input: { flex: 1, backgroundColor: "#1e1e21", color: "#e8e6e0", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", maxHeight: 100 },
-  sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#f5a623", justifyContent: "center", alignItems: "center" },
-  sendText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 20, marginTop: -2 },
+  shopsBtn: { backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: "#2e2e33" },
+  shopsBtnText: { color: "#e8e6e0", fontSize: 11, fontWeight: "500" },
   diagHeader: { color: "#f5a623", fontWeight: "bold", fontSize: 15, marginTop: 8, marginBottom: 2 },
   diagUrgent: { color: "#e05a5a", fontWeight: "600" },
   diagCost: { color: "#4caf7d", fontWeight: "500" },
