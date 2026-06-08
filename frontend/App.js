@@ -409,7 +409,7 @@ export default function App() {
   }
 
   if (showQuoteHistory) {
-    return <QuoteHistoryScreen car={car} onBack={() => setShowQuoteHistory(false)} />;
+    return <QuoteHistoryScreen car={car} cars={cars} onBack={() => setShowQuoteHistory(false)} />;
   }
 
   if (showSettings) {
