@@ -44,40 +44,6 @@ export default function SettingsScreen({ car, session, onBack, onSignOut, onShow
           </View>
         </View>
 
-        <Text style={styles.sectionLabel}>My Vehicle</Text>
-        <View style={styles.section}>
-          <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>🚗 Active Vehicle</Text>
-            <Text style={styles.settingValue}>{car?.year} {car?.make} {car?.model}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.recallsSection}>
-            <Text style={styles.recallsTitle}>⚠️ Active Recalls</Text>
-            {loadingRecalls ? (
-              <ActivityIndicator size="small" color="#f5a623" style={{ marginVertical: 12 }} />
-            ) : recalls === null ? null : recalls.length === 0 ? (
-              <Text style={styles.noRecalls}>✅ No active recalls found for your vehicle</Text>
-            ) : (
-              recalls.map((recall, i) => (
-                <View key={i} style={styles.recallCard}>
-                  <Text style={styles.recallComponent}>{recall.Component}</Text>
-                  <Text style={styles.recallSummary}>{recall.Summary}</Text>
-                  <Text style={styles.recallRemedy}>Fix: {recall.Remedy}</Text>
-                  <Text style={styles.recallCampaign}>Campaign: {recall.NHTSACampaignNumber}</Text>
-                </View>
-              ))
-            )}
-          </View>
-        </View>
-
-        <Text style={styles.sectionLabel}>Tools</Text>
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.settingRow} onPress={onShowQuoteHistory}>
-            <Text style={styles.settingLabel}>📄 Quote / History</Text>
-            <Text style={styles.settingArrow}>→</Text>
-          </TouchableOpacity>
-        </View>
-
         <Text style={styles.sectionLabel}>App</Text>
         <View style={styles.section}>
           <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
@@ -92,6 +58,14 @@ export default function SettingsScreen({ car, session, onBack, onSignOut, onShow
           <View style={styles.divider} />
           <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
             <Text style={styles.settingLabel}>⭐ Rate AutoDoc</Text>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionLabel}>Tools</Text>
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.settingRow} onPress={onShowQuoteHistory}>
+            <Text style={styles.settingLabel}>📄 Quote / History</Text>
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
         </View>
@@ -147,14 +121,6 @@ const styles = StyleSheet.create({
   settingArrow: { color: "#888", fontSize: 16 },
   settingBadge: { backgroundColor: "#4caf7d22", color: "#4caf7d", fontSize: 12, fontWeight: "600", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, borderWidth: 1, borderColor: "#4caf7d44" },
   divider: { height: 1, backgroundColor: "#2e2e33", marginLeft: 16 },
-  recallsSection: { padding: 16 },
-  recallsTitle: { color: "#f5a623", fontWeight: "600", fontSize: 14, marginBottom: 12 },
-  noRecalls: { color: "#4caf7d", fontSize: 13, lineHeight: 20 },
-  recallCard: { backgroundColor: "#1e1e21", borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: "#e05a5a44" },
-  recallComponent: { color: "#e05a5a", fontWeight: "600", fontSize: 13, marginBottom: 6 },
-  recallSummary: { color: "#e8e6e0", fontSize: 13, lineHeight: 18, marginBottom: 6 },
-  recallRemedy: { color: "#4caf7d", fontSize: 12, marginBottom: 4 },
-  recallCampaign: { color: "#888", fontSize: 11 },
   signOutBtn: { backgroundColor: "#161618", borderRadius: 12, borderWidth: 1, borderColor: "#e05a5a44", padding: 16, alignItems: "center", marginTop: 24 },
   signOutText: { color: "#e05a5a", fontSize: 15, fontWeight: "600" },
 });

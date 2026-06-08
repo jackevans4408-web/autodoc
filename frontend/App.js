@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, KeyboardAvoidingView, Platform, Keyboard, Modal, Animated } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -37,7 +37,6 @@ function FormattedDiagnosis({ text }) {
     const isStep = /^Step \d+:/i.test(cleaned);
     const isNumbered = /^\d+\./.test(cleaned);
     const isCostLine = inCostSection && cleaned.includes('DIY') && cleaned.includes('Shop') && !isSectionHeader;
-
     const isCritical = isUrgency && (cleaned.toLowerCase().includes('critical') || cleaned.toLowerCase().includes('high'));
     const isMedium = isUrgency && cleaned.toLowerCase().includes('medium');
     const isLow = isUrgency && cleaned.toLowerCase().includes('low');
@@ -66,7 +65,6 @@ function FormattedDiagnosis({ text }) {
       const shopMatch = costPart.match(/Shop\s*\$[\d,\.]+[-–]\$?[\d,\.]+/i);
       const diy = diyMatch ? diyMatch[0].replace(/DIY\s*/i, '').trim() : '';
       const shop = shopMatch ? shopMatch[0].replace(/Shop\s*/i, '').trim() : '';
-
       elements.push(
         <View key={i} style={styles.costRow}>
           <Text style={styles.costCause} numberOfLines={2}>{causeName}</Text>
@@ -138,17 +136,29 @@ export default function App() {
   const [diffModel, setDiffModel] = useState("");
   const [showMediaOptions, setShowMediaOptions] = useState(false);
   const [conversationHistory, setConversationHistory] = useState([]);
+  const [showMenuPanel, setShowMenuPanel] = useState(false);
+  const [savedDiagnoses, setSavedDiagnoses] = useState([]);
+  const [recalls, setRecalls] = useState(null);
+  const [loadingRecalls, setLoadingRecalls] = useState(false);
   const scrollViewRef = useRef(null);
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     checkSavedLogin();
   }, []);
+
+  useEffect(() => {
+    if (car?.year && car?.make && car?.model) {
+      loadRecalls();
+    }
+  }, [car]);
 
   const checkSavedLogin = async () => {
     try {
       const savedSession = await SecureStore.getItemAsync("userSession");
       const savedCar = await SecureStore.getItemAsync("userCar");
       const savedCars = await SecureStore.getItemAsync("userCars");
+      const savedDiags = await SecureStore.getItemAsync("savedDiagnoses");
       if (savedSession) {
         setSession(JSON.parse(savedSession));
         if (savedCar) {
@@ -164,10 +174,41 @@ export default function App() {
           }
         }
       }
+      if (savedDiags) setSavedDiagnoses(JSON.parse(savedDiags));
     } catch (e) {
       console.log("Auth error:", e);
     }
     setLoading(false);
+  };
+
+  const loadRecalls = async () => {
+    setLoadingRecalls(true);
+    try {
+      const url = `https://api.nhtsa.gov/recalls/recallsByVehicle?make=${car.make}&model=${car.model}&modelYear=${car.year}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      setRecalls(data.results || []);
+    } catch (e) {
+      setRecalls([]);
+    }
+    setLoadingRecalls(false);
+  };
+
+  const openMenuPanel = () => {
+    setShowMenuPanel(true);
+    Animated.timing(slideAnim, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeMenuPanel = () => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setShowMenuPanel(false));
   };
 
   const pickImage = async () => {
@@ -215,6 +256,37 @@ export default function App() {
     setSelectedImage(null);
   };
 
+  const saveDiagnosisToHistory = async (problem, diagnosisText) => {
+    const newDiag = {
+      id: Date.now().toString(),
+      problem: problem,
+      diagnosis: diagnosisText,
+      date: new Date().toLocaleDateString(),
+      car: `${car?.year} ${car?.make} ${car?.model}`,
+    };
+    const updated = [newDiag, ...savedDiagnoses];
+    setSavedDiagnoses(updated);
+    await SecureStore.setItemAsync("savedDiagnoses", JSON.stringify(updated));
+  };
+
+  const loadDiagnosis = (diag) => {
+    setMessages([
+      { role: "user", text: diag.problem },
+      { role: "bot", text: diag.diagnosis }
+    ]);
+    setConversationHistory([
+      { role: "user", content: diag.problem },
+      { role: "assistant", content: diag.diagnosis }
+    ]);
+    closeMenuPanel();
+  };
+
+  const deleteSavedDiagnosis = async (id) => {
+    const updated = savedDiagnoses.filter(d => d.id !== id);
+    setSavedDiagnoses(updated);
+    await SecureStore.setItemAsync("savedDiagnoses", JSON.stringify(updated));
+  };
+
   const sendMessage = async (overrideCar = null, directMessage = null) => {
     const userMessage = directMessage !== null ? directMessage : (pendingMessage !== null ? pendingMessage : message);
     const userImage = pendingImage !== null ? pendingImage : selectedImage;
@@ -233,8 +305,7 @@ export default function App() {
 
     const activeCar = overrideCar || car;
     const currentHistory = [...conversationHistory];
-
-    console.log("Sending with history length:", currentHistory.length);
+    const isFollowup = currentHistory.length > 0;
 
     try {
       const body = {
@@ -243,7 +314,7 @@ export default function App() {
         car_make: activeCar?.make,
         car_model: activeCar?.model,
         conversation_history: currentHistory.length > 0 ? currentHistory : null,
-        is_followup: currentHistory.length > 0,
+        is_followup: isFollowup,
       };
       if (userImage?.base64) {
         body.image_base64 = userImage.base64;
@@ -262,13 +333,16 @@ export default function App() {
         { role: "assistant", content: data.diagnosis }
       ];
       setConversationHistory(updatedHistory);
-      console.log("Updated history length:", updatedHistory.length);
 
       setMessages(prev => [...prev, {
         role: "bot",
         text: data.diagnosis,
         videos: data.videos
       }]);
+
+      if (!isFollowup) {
+        saveDiagnosisToHistory(userMessage, data.diagnosis);
+      }
 
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 
@@ -351,22 +425,24 @@ export default function App() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior="padding">
       <View style={styles.header}>
-        <Text style={styles.headerText}>AutoDoc</Text>
-        <TouchableOpacity style={styles.carSelector} onPress={() => setShowCarSelector(true)}>
-          <Text style={styles.carSelectorText} numberOfLines={1}>{car.year} {car.make} {car.model}</Text>
-          <Text style={styles.carSelectorArrow}>▼</Text>
+        <TouchableOpacity style={styles.menuBtn} onPress={openMenuPanel}>
+          <View style={styles.menuLine} />
+          <View style={styles.menuLine} />
+          <View style={styles.menuLine} />
         </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerText}>AutoDoc</Text>
+          <TouchableOpacity style={styles.carSelector} onPress={() => setShowCarSelector(true)}>
+            <Text style={styles.carSelectorText} numberOfLines={1}>{car.year} {car.make} {car.model}</Text>
+            <Text style={styles.carSelectorArrow}>▼</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={() => setShowQuoteHistory(true)}>
             <Text style={styles.quoteHistoryBtn}>📄 Quotes</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.shopsBtn} onPress={() => Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me")}>
             <Text style={styles.shopsBtnText}>🔧 Shops</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuBtn} onPress={() => setShowSettings(true)}>
-            <View style={styles.menuLine} />
-            <View style={styles.menuLine} />
-            <View style={styles.menuLine} />
           </TouchableOpacity>
         </View>
       </View>
@@ -379,13 +455,6 @@ export default function App() {
             <Text style={styles.emptyChatSub}>Describe your car problem, upload a photo, or attach a mechanic quote</Text>
           </View>
         )}
-
-        {messages.length > 0 && (
-          <TouchableOpacity style={styles.newDiagnosisBtn} onPress={startNewDiagnosis}>
-            <Text style={styles.newDiagnosisBtnText}>+ New Diagnosis</Text>
-          </TouchableOpacity>
-        )}
-
         {messages.map((msg, i) => (
           <View key={i} style={[styles.bubble, msg.role === "user" ? styles.userBubble : styles.botBubble]}>
             {msg.image && <Image source={{ uri: msg.image }} style={styles.messageImage} />}
@@ -409,7 +478,6 @@ export default function App() {
             )}
           </View>
         ))}
-
         {diagnosing && (
           <View style={styles.typingIndicator}>
             <ActivityIndicator size="small" color="#f5a623" />
@@ -452,6 +520,11 @@ export default function App() {
         >
           <Text style={styles.plusBtnText}>{showMediaOptions ? "✕" : "+"}</Text>
         </TouchableOpacity>
+        {conversationHistory.length > 0 && (
+          <TouchableOpacity style={styles.newDiagBtn} onPress={startNewDiagnosis}>
+            <Text style={styles.newDiagBtnText}>+ New</Text>
+          </TouchableOpacity>
+        )}
         <TextInput
           style={styles.input}
           value={message}
@@ -524,6 +597,96 @@ export default function App() {
         onClose={() => setShowCarSelector(false)}
       />
 
+      {/* Left Side Menu Panel */}
+      {showMenuPanel && (
+        <Modal visible={showMenuPanel} transparent animationType="none">
+          <View style={styles.menuOverlay}>
+            <Animated.View style={[styles.menuPanel, {
+              transform: [{
+                translateX: slideAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-400, 0],
+                })
+              }]
+            }]}>
+              <ScrollView>
+                <View style={styles.menuPanelHeader}>
+                  <Text style={styles.menuPanelTitle}>AutoDoc</Text>
+                  <TouchableOpacity onPress={closeMenuPanel}>
+                    <Text style={styles.menuPanelClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Settings Button */}
+                <TouchableOpacity style={styles.menuSettingsBtn} onPress={() => { closeMenuPanel(); setShowSettings(true); }}>
+                  <Text style={styles.menuSettingsBtnText}>⚙️ Settings</Text>
+                  <Text style={styles.menuSettingsArrow}>→</Text>
+                </TouchableOpacity>
+
+                <View style={styles.menuDivider} />
+
+                {/* My Vehicle & Recalls */}
+                <Text style={styles.menuSectionLabel}>My Vehicle</Text>
+                <View style={styles.menuVehicleCard}>
+                  <Text style={styles.menuVehicleName}>🚗 {car?.year} {car?.make} {car?.model}</Text>
+                  <TouchableOpacity onPress={() => { closeMenuPanel(); setShowCarSelector(true); }}>
+                    <Text style={styles.menuVehicleChange}>Change →</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.menuSectionLabel}>Active Recalls</Text>
+                {loadingRecalls ? (
+                  <ActivityIndicator size="small" color="#f5a623" style={{ marginVertical: 12 }} />
+                ) : recalls === null ? (
+                  <Text style={styles.menuRecallLoading}>Loading recalls...</Text>
+                ) : recalls.length === 0 ? (
+                  <Text style={styles.menuNoRecalls}>✅ No active recalls found</Text>
+                ) : (
+                  recalls.map((recall, i) => (
+                    <View key={i} style={styles.menuRecallCard}>
+                      <Text style={styles.menuRecallComponent}>{recall.Component}</Text>
+                      <Text style={styles.menuRecallSummary} numberOfLines={2}>{recall.Summary}</Text>
+                    </View>
+                  ))
+                )}
+
+                <View style={styles.menuDivider} />
+
+                {/* Diagnosis History */}
+                <Text style={styles.menuSectionLabel}>Diagnosis History</Text>
+                {savedDiagnoses.length === 0 ? (
+                  <Text style={styles.menuNoDiagnoses}>No saved diagnoses yet</Text>
+                ) : (
+                  savedDiagnoses.map((diag) => (
+                    <TouchableOpacity key={diag.id} style={styles.menuDiagItem} onPress={() => loadDiagnosis(diag)}>
+                      <View style={styles.menuDiagContent}>
+                        <Text style={styles.menuDiagProblem} numberOfLines={1}>{diag.problem}</Text>
+                        <Text style={styles.menuDiagMeta}>{diag.car} · {diag.date}</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => deleteSavedDiagnosis(diag.id)}>
+                        <Text style={styles.menuDiagDelete}>✕</Text>
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  ))
+                )}
+
+                <View style={styles.menuDivider} />
+
+                {/* Sign Out */}
+                <TouchableOpacity style={styles.menuSignOut} onPress={signOut}>
+                  <Text style={styles.menuSignOutText}>Sign Out</Text>
+                </TouchableOpacity>
+
+                <View style={{ height: 40 }} />
+              </ScrollView>
+            </Animated.View>
+
+            {/* Tap outside to close */}
+            <TouchableOpacity style={styles.menuOverlayTap} onPress={closeMenuPanel} activeOpacity={1} />
+          </View>
+        </Modal>
+      )}
+
       <StatusBar style="auto" />
     </KeyboardAvoidingView>
   );
@@ -531,24 +694,23 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0e" },
-  header: { backgroundColor: "#161618", paddingTop: 56, paddingBottom: 12, paddingHorizontal: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
+  header: { backgroundColor: "#161618", paddingTop: 56, paddingBottom: 12, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33", gap: 12 },
+  menuBtn: { width: 24, height: 18, justifyContent: "space-between" },
+  menuLine: { width: 20, height: 2, backgroundColor: "#e8e6e0", borderRadius: 2 },
+  headerCenter: { flex: 1 },
   headerText: { color: "#f5a623", fontSize: 20, fontWeight: "bold" },
-  carSelector: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "#2e2e33", maxWidth: 130 },
-  carSelectorText: { color: "#e8e6e0", fontSize: 11, fontWeight: "500" },
+  carSelector: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  carSelectorText: { color: "#888", fontSize: 11 },
   carSelectorArrow: { color: "#888", fontSize: 9 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
   quoteHistoryBtn: { color: "#f5a623", fontSize: 11, fontWeight: "500" },
   shopsBtn: { backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: "#2e2e33" },
   shopsBtnText: { color: "#e8e6e0", fontSize: 11, fontWeight: "500" },
-  menuBtn: { width: 28, height: 20, justifyContent: "space-between" },
-  menuLine: { width: 20, height: 2, backgroundColor: "#e8e6e0", borderRadius: 2 },
   chatArea: { flex: 1, padding: 16 },
   emptyChat: { alignItems: "center", paddingTop: 80 },
   emptyChatIcon: { fontSize: 48, marginBottom: 12 },
   emptyChatTitle: { color: "#f5a623", fontSize: 24, fontWeight: "bold", marginBottom: 8 },
   emptyChatSub: { color: "#888", fontSize: 14, textAlign: "center", lineHeight: 20, paddingHorizontal: 32 },
-  newDiagnosisBtn: { alignSelf: "center", backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: "#f5a62344", marginBottom: 12 },
-  newDiagnosisBtnText: { color: "#f5a623", fontSize: 13, fontWeight: "500" },
   bubble: { borderRadius: 16, padding: 12, marginBottom: 12, maxWidth: "96%" },
   userBubble: { backgroundColor: "#222226", alignSelf: "flex-end" },
   botBubble: { backgroundColor: "#161618", alignSelf: "flex-start", borderWidth: 1, borderColor: "#2e2e33" },
@@ -588,6 +750,8 @@ const styles = StyleSheet.create({
   plusBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#1e1e21", borderWidth: 1, borderColor: "#2e2e33", justifyContent: "center", alignItems: "center" },
   plusBtnActive: { backgroundColor: "#2e2e33", borderColor: "#f5a623" },
   plusBtnText: { color: "#f5a623", fontSize: 22, fontWeight: "300", lineHeight: 26 },
+  newDiagBtn: { backgroundColor: "#1e1e21", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#f5a62344" },
+  newDiagBtnText: { color: "#f5a623", fontSize: 12, fontWeight: "500" },
   input: { flex: 1, backgroundColor: "#1e1e21", color: "#e8e6e0", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", maxHeight: 100 },
   sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#f5a623", justifyContent: "center", alignItems: "center" },
   sendText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 20, marginTop: -2 },
@@ -605,4 +769,31 @@ const styles = StyleSheet.create({
   vehicleCancelText: { color: "#888", fontSize: 14 },
   diffVehicleForm: { marginBottom: 12 },
   diffInput: { backgroundColor: "#0d0d0e", color: "#e8e6e0", borderRadius: 8, padding: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 8 },
+  menuOverlay: { flex: 1, flexDirection: "row" },
+  menuPanel: { width: "80%", backgroundColor: "#161618", borderRightWidth: 1, borderRightColor: "#2e2e33" },
+  menuOverlayTap: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
+  menuPanelHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, paddingTop: 60, borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
+  menuPanelTitle: { color: "#f5a623", fontSize: 20, fontWeight: "bold" },
+  menuPanelClose: { color: "#888", fontSize: 20 },
+  menuSettingsBtn: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, margin: 16, backgroundColor: "#1e1e21", borderRadius: 12, borderWidth: 1, borderColor: "#2e2e33" },
+  menuSettingsBtnText: { color: "#e8e6e0", fontSize: 15, fontWeight: "500" },
+  menuSettingsArrow: { color: "#888", fontSize: 16 },
+  menuDivider: { height: 1, backgroundColor: "#2e2e33", marginVertical: 8 },
+  menuSectionLabel: { color: "#888", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.8, paddingHorizontal: 16, paddingVertical: 8 },
+  menuVehicleCard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginHorizontal: 16, backgroundColor: "#1e1e21", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 8 },
+  menuVehicleName: { color: "#e8e6e0", fontSize: 13, fontWeight: "500" },
+  menuVehicleChange: { color: "#f5a623", fontSize: 12 },
+  menuRecallLoading: { color: "#888", fontSize: 13, paddingHorizontal: 16, paddingBottom: 8 },
+  menuNoRecalls: { color: "#4caf7d", fontSize: 13, paddingHorizontal: 16, paddingBottom: 8 },
+  menuRecallCard: { marginHorizontal: 16, backgroundColor: "#1e1e21", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#e05a5a44", marginBottom: 8 },
+  menuRecallComponent: { color: "#e05a5a", fontWeight: "600", fontSize: 13, marginBottom: 4 },
+  menuRecallSummary: { color: "#888", fontSize: 12, lineHeight: 18 },
+  menuNoDiagnoses: { color: "#888", fontSize: 13, paddingHorizontal: 16, paddingBottom: 8 },
+  menuDiagItem: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, backgroundColor: "#1e1e21", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 8 },
+  menuDiagContent: { flex: 1 },
+  menuDiagProblem: { color: "#e8e6e0", fontSize: 13, fontWeight: "500", marginBottom: 2 },
+  menuDiagMeta: { color: "#888", fontSize: 11 },
+  menuDiagDelete: { color: "#888", fontSize: 14, padding: 4 },
+  menuSignOut: { margin: 16, backgroundColor: "#161618", borderRadius: 12, borderWidth: 1, borderColor: "#e05a5a44", padding: 14, alignItems: "center" },
+  menuSignOutText: { color: "#e05a5a", fontSize: 14, fontWeight: "600" },
 });
