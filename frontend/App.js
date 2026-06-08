@@ -618,7 +618,11 @@ export default function App() {
                 </View>
 
                 {/* Settings Button */}
-                <TouchableOpacity style={styles.menuSettingsBtn} onPress={() => { closeMenuPanel(); setShowSettings(true); }}>
+                <TouchableOpacity style={styles.menuSettingsBtn} onPress={() => { 
+                  setShowMenuPanel(false); 
+                  slideAnim.setValue(0);
+                  setTimeout(() => setShowSettings(true), 100); 
+                }}>
                   <Text style={styles.menuSettingsBtnText}>⚙️ Settings</Text>
                   <Text style={styles.menuSettingsArrow}>→</Text>
                 </TouchableOpacity>
@@ -629,7 +633,11 @@ export default function App() {
                 <Text style={styles.menuSectionLabel}>My Vehicle</Text>
                 <View style={styles.menuVehicleCard}>
                   <Text style={styles.menuVehicleName}>🚗 {car?.year} {car?.make} {car?.model}</Text>
-                  <TouchableOpacity onPress={() => { closeMenuPanel(); setShowCarSelector(true); }}>
+                  <TouchableOpacity onPress={() => { 
+                    setShowMenuPanel(false); 
+                    slideAnim.setValue(0);
+                    setTimeout(() => setShowCarSelector(true), 100); 
+                  }}>
                     <Text style={styles.menuVehicleChange}>Change →</Text>
                   </TouchableOpacity>
                 </View>
