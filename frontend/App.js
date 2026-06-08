@@ -506,10 +506,6 @@ export default function App() {
             <Text style={styles.mediaOptionIcon}>🖼</Text>
             <Text style={styles.mediaOptionText}>Gallery</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.mediaOption} onPress={() => { pickDocument(); setShowMediaOptions(false); }}>
-            <Text style={styles.mediaOptionIcon}>📄</Text>
-            <Text style={styles.mediaOptionText}>Document</Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -556,9 +552,11 @@ export default function App() {
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
             <View style={styles.vehicleModalContent}>
               <Text style={styles.vehicleModalTitle}>Which vehicle?</Text>
-              <TouchableOpacity style={styles.vehicleOption} onPress={() => sendMessage(car)}>
-                <Text style={styles.vehicleOptionText}>🚗 My {car?.year} {car?.make} {car?.model}</Text>
-              </TouchableOpacity>
+              {cars.map((c, i) => (
+                <TouchableOpacity key={i} style={[styles.vehicleOption, car?.id === c.id && styles.vehicleOptionActive]} onPress={() => sendMessage(c)}>
+                  <Text style={styles.vehicleOptionText}>🚗 {c.year} {c.make} {c.model}{car?.id === c.id ? " ✓" : ""}</Text>
+                </TouchableOpacity>
+              ))}
               {!differentVehicle ? (
                 <TouchableOpacity style={styles.vehicleOption} onPress={() => setDifferentVehicle(true)}>
                   <Text style={styles.vehicleOptionText}>🔧 Different Vehicle</Text>
@@ -804,4 +802,5 @@ const styles = StyleSheet.create({
   menuDiagDelete: { color: "#888", fontSize: 14, padding: 4 },
   menuSignOut: { margin: 16, backgroundColor: "#161618", borderRadius: 12, borderWidth: 1, borderColor: "#e05a5a44", padding: 14, alignItems: "center" },
   menuSignOutText: { color: "#e05a5a", fontSize: 14, fontWeight: "600" },
+  vehicleOptionActive: { borderColor: "#f5a623", backgroundColor: "#f5a62311" },
 });

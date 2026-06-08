@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Modal,
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 
 const ALL_MAINTENANCE_OPTIONS = [
   { key: "oil", label: "🛢 Oil Change", defaultInterval: 5000 },
@@ -18,7 +19,7 @@ const ALL_MAINTENANCE_OPTIONS = [
   { key: "difffluid", label: "🔩 Differential Fluid", defaultInterval: 30000 },
   { key: "timingbelt", label: "⏱ Timing Belt", defaultInterval: 60000 },
   { key: "serpentine", label: "🔁 Serpentine Belt", defaultInterval: 60000 },
-  { key: "fuelfiler", label: "⛽ Fuel Filter", defaultInterval: 30000 },
+  { key: "fuelfilter", label: "⛽ Fuel Filter", defaultInterval: 30000 },
   { key: "wipers", label: "🌧 Wiper Blades", defaultInterval: 12000 },
 ];
 
@@ -47,8 +48,6 @@ export default function QuoteHistoryScreen({ car, onBack }) {
   const [editingMaintenance, setEditingMaintenance] = useState(null);
   const [maintLastMileage, setMaintLastMileage] = useState("");
   const [maintInterval, setMaintInterval] = useState("");
-  const [selectedRepairType, setSelectedRepairType] = useState(null);
-  const [showRepairPicker, setShowRepairPicker] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -95,8 +94,7 @@ export default function QuoteHistoryScreen({ car, onBack }) {
 
   const addMaintenanceItem = async (item) => {
     if (activeMaintenanceItems.find(i => i.key === item.key)) {
-      alert("This item is already in your list!");
-      return;
+      alert("Already in your list!"); return;
     }
     const updated = [...activeMaintenanceItems, item];
     setActiveMaintenanceItems(updated);
@@ -130,6 +128,22 @@ export default function QuoteHistoryScreen({ car, onBack }) {
       allowsEditing: true, quality: 0.8, base64: true,
     });
     if (!result.canceled) { setSelectedImage(result.assets[0]); setAnalysis(null); }
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
+        setSelectedImage({ uri: asset.uri, base64: null, name: asset.name, isDocument: true });
+        setAnalysis(null);
+      }
+    } catch (e) {
+      alert("Error picking document");
+    }
   };
 
   const analyzeQuote = async () => {
@@ -167,11 +181,10 @@ export default function QuoteHistoryScreen({ car, onBack }) {
   };
 
   const addRepair = async () => {
-    if (!selectedRepairType) { alert("Please select a repair type"); return; }
+    if (!repairName.trim()) { alert("Please enter a repair name"); return; }
     const newRepair = {
       id: Date.now().toString(),
-      name: selectedRepairType.label,
-      key: selectedRepairType.key,
+      name: repairName,
       date: repairDate || new Date().toLocaleDateString(),
       cost: repairCost,
       mileage: repairMileage,
@@ -180,18 +193,8 @@ export default function QuoteHistoryScreen({ car, onBack }) {
     const updated = [newRepair, ...repairs];
     setRepairs(updated);
     await SecureStore.setItemAsync("repairHistory", JSON.stringify(updated));
-
-    // Auto-update maintenance schedule if this matches an active item
-    const matchingMaint = activeMaintenanceItems.find(i => i.key === selectedRepairType.key);
-    if (matchingMaint && repairMileage) {
-      const currentData = maintenance[selectedRepairType.key];
-      const interval = currentData?.interval || matchingMaint.defaultInterval.toString();
-      await saveMaintenance(selectedRepairType.key, repairMileage, interval);
-    }
-
     setShowAddRepair(false);
-    setSelectedRepairType(null);
-    setRepairDate(""); setRepairCost(""); setRepairMileage(""); setRepairNotes("");
+    setRepairName(""); setRepairDate(""); setRepairCost(""); setRepairMileage(""); setRepairNotes("");
   };
 
   const deleteRepair = async (id) => {
@@ -220,7 +223,15 @@ export default function QuoteHistoryScreen({ car, onBack }) {
         <Text style={styles.headerText}>Quote / History</Text>
         <TouchableOpacity
           style={styles.addBtn}
-          onPress={() => activeTab === "history" ? setShowAddRepair(true) : setShowAddQuote(true)}
+          onPress={() => {
+            if (activeTab === "history") {
+              setRepairName(""); setRepairDate(""); setRepairCost(""); setRepairMileage(""); setRepairNotes("");
+              setShowAddRepair(true);
+            } else {
+              setSelectedImage(null); setAnalysis(null);
+              setShowAddQuote(true);
+            }
+          }}
         >
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
@@ -238,7 +249,7 @@ export default function QuoteHistoryScreen({ car, onBack }) {
       <ScrollView style={styles.content}>
         {activeTab === "quotes" && (
           <View>
-            <TouchableOpacity style={styles.newQuoteBtn} onPress={() => setShowAddQuote(true)}>
+            <TouchableOpacity style={styles.newQuoteBtn} onPress={() => { setSelectedImage(null); setAnalysis(null); setShowAddQuote(true); }}>
               <Text style={styles.newQuoteBtnText}>📷 Analyze New Quote</Text>
             </TouchableOpacity>
             {quotes.length === 0 ? (
@@ -309,15 +320,12 @@ export default function QuoteHistoryScreen({ car, onBack }) {
                 return (
                   <View key={item.key} style={styles.maintCard}>
                     <View style={styles.maintRow}>
-                      <TouchableOpacity
-                        style={styles.maintLeft}
-                        onPress={() => {
-                          setEditingMaintenance(item);
-                          setMaintLastMileage(data?.lastMileage || "");
-                          setMaintInterval(data?.interval || item.defaultInterval.toString());
-                          setShowMaintenanceSetup(true);
-                        }}
-                      >
+                      <TouchableOpacity style={styles.maintLeft} onPress={() => {
+                        setEditingMaintenance(item);
+                        setMaintLastMileage(data?.lastMileage || "");
+                        setMaintInterval(data?.interval || item.defaultInterval.toString());
+                        setShowMaintenanceSetup(true);
+                      }}>
                         <Text style={styles.maintLabel}>{item.label}</Text>
                         {status ? (
                           <View style={[styles.maintBadge,
@@ -425,28 +433,6 @@ export default function QuoteHistoryScreen({ car, onBack }) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Repair Type Picker Modal */}
-      <Modal visible={showRepairPicker} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Repair Type</Text>
-              <TouchableOpacity onPress={() => setShowRepairPicker(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {ALL_MAINTENANCE_OPTIONS.map(item => (
-                <TouchableOpacity key={item.key} style={[styles.maintOption, selectedRepairType?.key === item.key && styles.maintOptionSelected]} onPress={() => { setSelectedRepairType(item); setShowRepairPicker(false); }}>
-                  <Text style={styles.maintOptionLabel}>{item.label}</Text>
-                  <Text style={styles.maintOptionInterval}>Every {item.defaultInterval.toLocaleString()} mi</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
       {/* Add Quote Modal */}
       <Modal visible={showAddQuote} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -467,6 +453,9 @@ export default function QuoteHistoryScreen({ car, onBack }) {
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
                       <Text style={styles.uploadBtnText}>🖼 Gallery</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={pickDocument}>
+                      <Text style={styles.uploadBtnText}>📄 Document</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -503,26 +492,16 @@ export default function QuoteHistoryScreen({ car, onBack }) {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Log a Repair</Text>
-              <TouchableOpacity onPress={() => { setShowAddRepair(false); setSelectedRepairType(null); }}>
+              <TouchableOpacity onPress={() => setShowAddRepair(false)}>
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled">
-              <TouchableOpacity style={styles.repairTypePicker} onPress={() => setShowRepairPicker(true)}>
-                <Text style={selectedRepairType ? styles.repairTypeSelected : styles.repairTypePlaceholder}>
-                  {selectedRepairType ? selectedRepairType.label : "Select repair type..."}
-                </Text>
-                <Text style={styles.dropdownArrow}>▼</Text>
-              </TouchableOpacity>
+              <TextInput style={styles.input} placeholder="Repair name (e.g. Oil Change, Brake Pads)" placeholderTextColor="#888" value={repairName} onChangeText={setRepairName} />
               <TextInput style={styles.input} placeholder="Date (e.g. 06/05/2026)" placeholderTextColor="#888" value={repairDate} onChangeText={setRepairDate} />
               <TextInput style={styles.input} placeholder="Cost (e.g. 250)" placeholderTextColor="#888" value={repairCost} onChangeText={setRepairCost} keyboardType="numeric" />
-              <TextInput style={styles.input} placeholder="Mileage at repair (e.g. 85000)" placeholderTextColor="#888" value={repairMileage} onChangeText={setRepairMileage} keyboardType="numeric" />
+              <TextInput style={styles.input} placeholder="Mileage (e.g. 85000)" placeholderTextColor="#888" value={repairMileage} onChangeText={setRepairMileage} keyboardType="numeric" />
               <TextInput style={[styles.input, styles.notesInput]} placeholder="Notes (optional)" placeholderTextColor="#888" value={repairNotes} onChangeText={setRepairNotes} multiline />
-              {selectedRepairType && activeMaintenanceItems.find(i => i.key === selectedRepairType.key) && (
-                <View style={styles.autoUpdateNote}>
-                  <Text style={styles.autoUpdateText}>✅ Will auto-update your {selectedRepairType.label} maintenance tracker!</Text>
-                </View>
-              )}
               <TouchableOpacity style={styles.saveBtn} onPress={addRepair}>
                 <Text style={styles.saveBtnText}>Save Repair</Text>
               </TouchableOpacity>
@@ -575,7 +554,6 @@ const styles = StyleSheet.create({
   maintSetup: { color: "#888", fontSize: 12 },
   maintDelete: { padding: 4, marginLeft: 8 },
   maintOption: { backgroundColor: "#1e1e21", borderRadius: 10, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "#2e2e33", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  maintOptionSelected: { borderColor: "#f5a623", backgroundColor: "#f5a62311" },
   maintOptionLabel: { color: "#e8e6e0", fontSize: 14 },
   maintOptionInterval: { color: "#888", fontSize: 12 },
   newQuoteBtn: { backgroundColor: "#f5a623", borderRadius: 10, padding: 14, alignItems: "center", marginBottom: 16 },
@@ -601,12 +579,6 @@ const styles = StyleSheet.create({
   repairDetails: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8, marginBottom: 6 },
   repairDetail: { color: "#888", fontSize: 13 },
   repairNotes: { color: "#888", fontSize: 13, fontStyle: "italic", marginTop: 4 },
-  repairTypePicker: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: "#2e2e33", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  repairTypeSelected: { color: "#e8e6e0", fontSize: 14 },
-  repairTypePlaceholder: { color: "#888", fontSize: 14 },
-  dropdownArrow: { color: "#888", fontSize: 12 },
-  autoUpdateNote: { backgroundColor: "#4caf7d22", borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: "#4caf7d44" },
-  autoUpdateText: { color: "#4caf7d", fontSize: 13 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
   modalContent: { backgroundColor: "#161618", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: "90%" },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
@@ -614,8 +586,8 @@ const styles = StyleSheet.create({
   modalClose: { color: "#888", fontSize: 20 },
   uploadArea: { backgroundColor: "#1e1e21", borderRadius: 12, padding: 24, alignItems: "center", marginBottom: 16, borderWidth: 1, borderColor: "#2e2e33" },
   uploadText: { color: "#888", fontSize: 15, marginBottom: 16 },
-  uploadButtons: { flexDirection: "row", gap: 12 },
-  uploadBtn: { backgroundColor: "#161618", borderRadius: 8, padding: 12, paddingHorizontal: 20, borderWidth: 1, borderColor: "#2e2e33" },
+  uploadButtons: { flexDirection: "row", gap: 8, flexWrap: "wrap", justifyContent: "center" },
+  uploadBtn: { backgroundColor: "#161618", borderRadius: 8, padding: 12, paddingHorizontal: 16, borderWidth: 1, borderColor: "#2e2e33" },
   uploadBtnText: { color: "#e8e6e0", fontSize: 14 },
   previewImage: { width: "100%", height: 200, borderRadius: 10, marginBottom: 12 },
   changeBtn: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 10, alignItems: "center", marginBottom: 12, borderWidth: 1, borderColor: "#2e2e33" },
