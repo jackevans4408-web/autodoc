@@ -20,6 +20,7 @@ class DiagnoseRequest(BaseModel):
     car_year: Optional[str] = None
     car_make: Optional[str] = None
     car_model: Optional[str] = None
+    car_engine: Optional[str] = None
     conversation_history: Optional[List[MessageHistory]] = None
     is_followup: Optional[bool] = False
 
@@ -45,7 +46,7 @@ async def diagnose(request: DiagnoseRequest):
         text=request.text,
         image_data=image_data,
         image_type=request.image_type,
-        car_info=f"{request.car_year} {request.car_make} {request.car_model}" if request.car_year else None,
+        car_info=f"{request.car_year} {request.car_make} {request.car_model} {request.car_engine or ''}".strip() if request.car_year else None,
         recall_info=recall_info,
         conversation_history=conversation_history,
         is_followup=request.is_followup
