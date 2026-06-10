@@ -1,5 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, FlatList, ActivityIndicator } from "react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const ALL_MAKES = [
   "Acura", "Alfa Romeo", "Aston Martin", "Audi", "Bentley", "BMW", "Bugatti",
@@ -28,13 +28,79 @@ export default function CarProfileScreen({ onSave }) {
   const [mileage, setMileage] = useState("");
   const [error, setError] = useState("");
   const [showMakePicker, setShowMakePicker] = useState(false);
+  const [showModelPicker, setShowModelPicker] = useState(false);
   const [showEnginePicker, setShowEnginePicker] = useState(false);
   const [makeSearch, setMakeSearch] = useState("");
+  const [modelSearch, setModelSearch] = useState("");
+  const [modelOptions, setModelOptions] = useState([]);
+  const [engineOptions, setEngineOptions] = useState(ENGINE_SIZES);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [fetchingEngines, setFetchingEngines] = useState(false);
 
   const filteredMakes = ALL_MAKES.filter(m =>
     m.toLowerCase().includes(makeSearch.toLowerCase())
   );
 
+  const filteredModels = modelOptions.filter(m =>
+    m.toLowerCase().includes(modelSearch.toLowerCase())
+  );
+
+  // Fetch models when year + make are set
+  useEffect(() => {
+    if (year.length === 4 && !isNaN(year) && make && make !== "Other") {
+      fetchModels();
+    } else {
+      setModelOptions([]);
+      setModel("");
+    }
+  }, [year, make]);
+
+  // Fetch engines when model is selected
+  useEffect(() => {
+    if (year.length === 4 && make && model) {
+      fetchEngines();
+    } else {
+      setEngineOptions(ENGINE_SIZES);
+      setEngine("");
+    }
+  }, [model]);
+
+  const fetchModels = async () => {
+    setFetchingModels(true);
+    setModel("");
+    setEngine("");
+    try {
+      const response = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(make)}/modelyear/${year}?format=json`
+      );
+      const data = await response.json();
+      if (data.Results && data.Results.length > 0) {
+        const models = data.Results.map(r => r.Model_Name).sort();
+        setModelOptions(models);
+      } else {
+        setModelOptions([]);
+      }
+    } catch (e) {
+      setModelOptions([]);
+    }
+    setFetchingModels(false);
+  };
+
+  const fetchEngines = async () => {
+  setFetchingEngines(true);
+  setEngine("");
+  try {
+    const response = await fetch(
+      `https://vpic.nhtsa.dot.gov/api/vehicles/GetCanadianVehicleSpecifications/?Year=${year}&Make=${encodeURIComponent(make)}&Model=${encodeURIComponent(model)}&units=US&format=json`
+    );
+    const data = await response.json();
+    console.log("Engine data:", JSON.stringify(data).substring(0, 500));
+    setEngineOptions(ENGINE_SIZES);
+  } catch (e) {
+    setEngineOptions(ENGINE_SIZES);
+  }
+  setFetchingEngines(false);
+};
   const decodeVin = async () => {
     if (vin.length !== 17) {
       setVinError("VIN must be exactly 17 characters");
@@ -57,7 +123,6 @@ export default function CarProfileScreen({ onSave }) {
       const decodedYear = getValue("Model Year");
       const decodedMake = getValue("Make");
       const decodedModel = getValue("Model");
-      const decodedDisplacement = getValue("Displacement (L)");
       const decodedCylinders = getValue("Number of Cylinders");
 
       if (!decodedYear && !decodedMake) {
@@ -73,7 +138,6 @@ export default function CarProfileScreen({ onSave }) {
       }
       if (decodedModel) setModel(decodedModel);
 
-      // Set engine size from cylinders
       if (decodedCylinders) {
         const cyl = parseInt(decodedCylinders);
         if (cyl === 3) setEngine("3-Cylinder");
@@ -151,17 +215,19 @@ export default function CarProfileScreen({ onSave }) {
           <View style={styles.dividerLine} />
         </View>
 
+        {/* Year */}
         <Text style={styles.label}>Year</Text>
         <TextInput
           style={styles.input}
           placeholder="e.g. 2019"
           placeholderTextColor="#888"
           value={year}
-          onChangeText={setYear}
+          onChangeText={(text) => { setYear(text); setModel(""); setEngine(""); }}
           keyboardType="numeric"
           maxLength={4}
         />
 
+        {/* Make */}
         <Text style={styles.label}>Make</Text>
         <TouchableOpacity style={styles.dropdown} onPress={() => setShowMakePicker(true)}>
           <Text style={make ? styles.dropdownSelected : styles.dropdownPlaceholder}>
@@ -170,23 +236,54 @@ export default function CarProfileScreen({ onSave }) {
           <Text style={styles.dropdownArrow}>▼</Text>
         </TouchableOpacity>
 
-        <Text style={styles.label}>Model</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. XC90, Huracan, Civic"
-          placeholderTextColor="#888"
-          value={model}
-          onChangeText={setModel}
-        />
+        {/* Model */}
+        <Text style={styles.label}>
+          Model {fetchingModels ? "  🔄 Loading models..." : modelOptions.length > 0 ? `  (${modelOptions.length} found)` : ""}
+        </Text>
+        {modelOptions.length > 0 ? (
+          <TouchableOpacity
+            style={[styles.dropdown, fetchingModels && styles.dropdownDisabled]}
+            onPress={() => !fetchingModels && setShowModelPicker(true)}
+          >
+            {fetchingModels ? (
+              <ActivityIndicator size="small" color="#888" />
+            ) : (
+              <Text style={model ? styles.dropdownSelected : styles.dropdownPlaceholder}>
+                {model || "Select model..."}
+              </Text>
+            )}
+            <Text style={styles.dropdownArrow}>▼</Text>
+          </TouchableOpacity>
+        ) : (
+          <TextInput
+            style={styles.input}
+            placeholder={fetchingModels ? "Loading models..." : year.length === 4 && make ? "No models found — type manually" : "e.g. XC90, M3, Civic"}
+            placeholderTextColor="#888"
+            value={model}
+            onChangeText={setModel}
+            editable={!fetchingModels}
+          />
+        )}
 
-        <Text style={styles.label}>Engine Size</Text>
-        <TouchableOpacity style={styles.dropdown} onPress={() => setShowEnginePicker(true)}>
-          <Text style={engine ? styles.dropdownSelected : styles.dropdownPlaceholder}>
-            {engine || "Select engine size..."}
-          </Text>
+        {/* Engine */}
+        <Text style={styles.label}>
+          Engine Size {fetchingEngines ? "  🔄 Looking up engines..." : engineOptions.length < ENGINE_SIZES.length ? "  ✅ Options loaded" : ""}
+        </Text>
+        <TouchableOpacity
+          style={[styles.dropdown, fetchingEngines && styles.dropdownDisabled]}
+          onPress={() => !fetchingEngines && setShowEnginePicker(true)}
+        >
+          {fetchingEngines ? (
+            <ActivityIndicator size="small" color="#888" />
+          ) : (
+            <Text style={engine ? styles.dropdownSelected : styles.dropdownPlaceholder}>
+              {engine || "Select engine size..."}
+            </Text>
+          )}
           <Text style={styles.dropdownArrow}>▼</Text>
         </TouchableOpacity>
 
+        {/* Mileage */}
         <Text style={styles.label}>Mileage (optional)</Text>
         <TextInput
           style={styles.input}
@@ -228,10 +325,43 @@ export default function CarProfileScreen({ onSave }) {
                   style={[styles.makeItem, make === item && styles.makeItemSelected]}
                   onPress={() => { setMake(item); setShowMakePicker(false); setMakeSearch(""); }}
                 >
-                  <Text style={[styles.makeItemText, make === item && styles.makeItemTextSelected]}>
-                    {item}
-                  </Text>
+                  <Text style={[styles.makeItemText, make === item && styles.makeItemTextSelected]}>{item}</Text>
                   {make === item && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Model Picker Modal */}
+      <Modal visible={showModelPicker} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Model</Text>
+              <TouchableOpacity onPress={() => { setShowModelPicker(false); setModelSearch(""); }}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search models..."
+              placeholderTextColor="#888"
+              value={modelSearch}
+              onChangeText={setModelSearch}
+              autoFocus
+            />
+            <FlatList
+              data={filteredModels}
+              keyExtractor={item => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.makeItem, model === item && styles.makeItemSelected]}
+                  onPress={() => { setModel(item); setShowModelPicker(false); setModelSearch(""); }}
+                >
+                  <Text style={[styles.makeItemText, model === item && styles.makeItemTextSelected]}>{item}</Text>
+                  {model === item && <Text style={styles.checkmark}>✓</Text>}
                 </TouchableOpacity>
               )}
             />
@@ -250,16 +380,14 @@ export default function CarProfileScreen({ onSave }) {
               </TouchableOpacity>
             </View>
             <FlatList
-              data={ENGINE_SIZES}
+              data={engineOptions}
               keyExtractor={item => item}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[styles.makeItem, engine === item && styles.makeItemSelected]}
                   onPress={() => { setEngine(item); setShowEnginePicker(false); }}
                 >
-                  <Text style={[styles.makeItemText, engine === item && styles.makeItemTextSelected]}>
-                    {item}
-                  </Text>
+                  <Text style={[styles.makeItemText, engine === item && styles.makeItemTextSelected]}>{item}</Text>
                   {engine === item && <Text style={styles.checkmark}>✓</Text>}
                 </TouchableOpacity>
               )}
@@ -292,7 +420,8 @@ const styles = StyleSheet.create({
   dividerRow: { flexDirection: "row", alignItems: "center", marginVertical: 20, gap: 10 },
   dividerLine: { flex: 1, height: 1, backgroundColor: "#2e2e33" },
   dividerText: { color: "#888", fontSize: 12 },
-  dropdown: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 12, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  dropdown: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 12, borderWidth: 1, borderColor: "#2e2e33", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  dropdownDisabled: { opacity: 0.6 },
   dropdownPlaceholder: { color: "#888", fontSize: 14 },
   dropdownSelected: { color: "#e8e6e0", fontSize: 14 },
   dropdownArrow: { color: "#888", fontSize: 12 },
