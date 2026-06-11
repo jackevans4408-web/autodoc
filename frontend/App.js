@@ -313,6 +313,7 @@ export default function App() {
         car_year: activeCar?.year,
         car_make: activeCar?.make,
         car_model: activeCar?.model,
+        car_engine: activeCar?.engine,
         conversation_history: currentHistory.length > 0 ? currentHistory : null,
         is_followup: isFollowup,
       };
@@ -397,15 +398,18 @@ export default function App() {
   }
 
   if (!car || showAddCar) {
-    return <CarProfileScreen onSave={async (carData) => {
-      const newCar = { ...carData, id: Date.now().toString() };
-      const updatedCars = [...cars, newCar];
-      setCars(updatedCars);
-      setCar(newCar);
-      await SecureStore.setItemAsync("userCars", JSON.stringify(updatedCars));
-      await SecureStore.setItemAsync("userCar", JSON.stringify(newCar));
-      setShowAddCar(false);
-    }} />;
+    return <CarProfileScreen 
+      onSave={async (carData) => {
+        const newCar = { ...carData, id: Date.now().toString() };
+        const updatedCars = [...cars, newCar];
+        setCars(updatedCars);
+        setCar(newCar);
+        await SecureStore.setItemAsync("userCars", JSON.stringify(updatedCars));
+        await SecureStore.setItemAsync("userCar", JSON.stringify(newCar));
+        setShowAddCar(false);
+      }}
+      onCancel={cars.length > 0 ? () => setShowAddCar(false) : null}
+    />;
   }
 
   if (showQuoteHistory) {
@@ -627,18 +631,60 @@ export default function App() {
 
                 <View style={styles.menuDivider} />
 
-                {/* My Vehicle & Recalls */}
-                <Text style={styles.menuSectionLabel}>My Vehicle</Text>
-                <View style={styles.menuVehicleCard}>
-                  <Text style={styles.menuVehicleName}>🚗 {car?.year} {car?.make} {car?.model}</Text>
-                  <TouchableOpacity onPress={() => { 
-                    setShowMenuPanel(false); 
-                    slideAnim.setValue(0);
-                    setTimeout(() => setShowCarSelector(true), 100); 
-                  }}>
-                    <Text style={styles.menuVehicleChange}>Change →</Text>
-                  </TouchableOpacity>
-                </View>
+                {/* My Vehicle */}
+<Text style={styles.menuSectionLabel}>My Vehicles</Text>
+{cars.map((c) => (
+  <TouchableOpacity
+    key={c.id}
+    style={[styles.menuVehicleCard, car?.id === c.id && styles.menuVehicleCardActive]}
+    onPress={async () => {
+      setCar(c);
+      await SecureStore.setItemAsync("userCar", JSON.stringify(c));
+      setMessages([]);
+      setConversationHistory([]);
+      closeMenuPanel();
+    }}
+  >
+    <View>
+      <Text style={styles.menuVehicleName}>🚗 {c.year} {c.make} {c.model}</Text>
+      {c.engine ? <Text style={styles.menuVehicleEngine}>{c.engine}</Text> : null}
+    </View>
+    <View style={styles.menuVehicleRight}>
+      {car?.id === c.id && <Text style={styles.menuVehicleCheck}>✓</Text>}
+      <TouchableOpacity onPress={async () => {
+        const updated = cars.filter(x => x.id !== c.id);
+        setCars(updated);
+        await SecureStore.setItemAsync("userCars", JSON.stringify(updated));
+        if (car?.id === c.id && updated.length > 0) {
+          setCar(updated[0]);
+          await SecureStore.setItemAsync("userCar", JSON.stringify(updated[0]));
+        } else if (updated.length === 0) {
+          setCar(null);
+          await SecureStore.deleteItemAsync("userCar");
+        }
+      }} style={styles.menuVehicleDelete}>
+        <Text style={styles.menuVehicleDeleteText}>✕</Text>
+      </TouchableOpacity>
+    </View>
+  </TouchableOpacity>
+))}
+  <TouchableOpacity style={styles.menuAddCarBtn} onPress={() => {
+    setShowMenuPanel(false);
+    slideAnim.setValue(0);
+    setTimeout(() => setShowAddCar(true), 100);
+  }}>
+    <Text style={styles.menuAddCarText}>+ Add Vehicle</Text>
+  </TouchableOpacity>
+  <TouchableOpacity style={styles.menuClearCarsBtn} onPress={async () => {
+    setCars([]);
+    setCar(null);
+    await SecureStore.deleteItemAsync("userCars");
+    await SecureStore.deleteItemAsync("userCar");
+    setShowMenuPanel(false);
+    slideAnim.setValue(0);
+  }}>
+    <Text style={styles.menuClearCarsText}>🗑 Clear All Vehicles</Text>
+  </TouchableOpacity>
 
                 <Text style={styles.menuSectionLabel}>Active Recalls</Text>
                 {loadingRecalls ? (
@@ -803,4 +849,14 @@ const styles = StyleSheet.create({
   menuSignOut: { margin: 16, backgroundColor: "#161618", borderRadius: 12, borderWidth: 1, borderColor: "#e05a5a44", padding: 14, alignItems: "center" },
   menuSignOutText: { color: "#e05a5a", fontSize: 14, fontWeight: "600" },
   vehicleOptionActive: { borderColor: "#f5a623", backgroundColor: "#f5a62311" },
+  menuVehicleCardActive: { borderColor: "#f5a623", backgroundColor: "#f5a62311" },
+  menuVehicleEngine: { color: "#888", fontSize: 11, marginTop: 2 },
+  menuVehicleRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  menuVehicleCheck: { color: "#f5a623", fontSize: 16, fontWeight: "bold" },
+  menuVehicleDelete: { padding: 4 },
+  menuVehicleDeleteText: { color: "#888", fontSize: 14 },
+  menuAddCarBtn: { marginHorizontal: 16, backgroundColor: "#1e1e21", borderRadius: 10, padding: 12, alignItems: "center", borderWidth: 1, borderColor: "#f5a62344", marginBottom: 8, borderStyle: "dashed" },
+  menuAddCarText: { color: "#f5a623", fontSize: 14, fontWeight: "500" },
+  menuClearCarsBtn: { marginHorizontal: 16, padding: 12, alignItems: "center", marginBottom: 8 },
+  menuClearCarsText: { color: "#e05a5a", fontSize: 13 },
 });

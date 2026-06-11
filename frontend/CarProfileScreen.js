@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, FlatList, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { useState, useEffect } from "react";
 
 const ALL_MAKES = [
@@ -12,15 +12,11 @@ const ALL_MAKES = [
   "Volkswagen", "Volvo", "Other"
 ];
 
-const ENGINE_SIZES = [
-  "3-Cylinder", "4-Cylinder", "5-Cylinder", "V6", "V8", "V10", "V12",
-  "Electric", "Hybrid", "Diesel", "Other"
-];
-
-export default function CarProfileScreen({ onSave }) {
+export default function CarProfileScreen({ onSave, onCancel }) {
   const [vin, setVin] = useState("");
   const [vinLoading, setVinLoading] = useState(false);
   const [vinError, setVinError] = useState("");
+  const [vinDecoded, setVinDecoded] = useState(false);
   const [year, setYear] = useState("");
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
@@ -29,13 +25,10 @@ export default function CarProfileScreen({ onSave }) {
   const [error, setError] = useState("");
   const [showMakePicker, setShowMakePicker] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
-  const [showEnginePicker, setShowEnginePicker] = useState(false);
   const [makeSearch, setMakeSearch] = useState("");
   const [modelSearch, setModelSearch] = useState("");
   const [modelOptions, setModelOptions] = useState([]);
-  const [engineOptions, setEngineOptions] = useState(ENGINE_SIZES);
   const [fetchingModels, setFetchingModels] = useState(false);
-  const [fetchingEngines, setFetchingEngines] = useState(false);
 
   const filteredMakes = ALL_MAKES.filter(m =>
     m.toLowerCase().includes(makeSearch.toLowerCase())
@@ -45,30 +38,18 @@ export default function CarProfileScreen({ onSave }) {
     m.toLowerCase().includes(modelSearch.toLowerCase())
   );
 
-  // Fetch models when year + make are set
   useEffect(() => {
     if (year.length === 4 && !isNaN(year) && make && make !== "Other") {
       fetchModels();
     } else {
       setModelOptions([]);
-      setModel("");
+      if (!vinDecoded) setModel("");
     }
   }, [year, make]);
 
-  // Fetch engines when model is selected
-  useEffect(() => {
-    if (year.length === 4 && make && model) {
-      fetchEngines();
-    } else {
-      setEngineOptions(ENGINE_SIZES);
-      setEngine("");
-    }
-  }, [model]);
-
   const fetchModels = async () => {
     setFetchingModels(true);
-    setModel("");
-    setEngine("");
+    if (!vinDecoded) setModel("");
     try {
       const response = await fetch(
         `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(make)}/modelyear/${year}?format=json`
@@ -86,21 +67,6 @@ export default function CarProfileScreen({ onSave }) {
     setFetchingModels(false);
   };
 
-  const fetchEngines = async () => {
-  setFetchingEngines(true);
-  setEngine("");
-  try {
-    const response = await fetch(
-      `https://vpic.nhtsa.dot.gov/api/vehicles/GetCanadianVehicleSpecifications/?Year=${year}&Make=${encodeURIComponent(make)}&Model=${encodeURIComponent(model)}&units=US&format=json`
-    );
-    const data = await response.json();
-    console.log("Engine data:", JSON.stringify(data).substring(0, 500));
-    setEngineOptions(ENGINE_SIZES);
-  } catch (e) {
-    setEngineOptions(ENGINE_SIZES);
-  }
-  setFetchingEngines(false);
-};
   const decodeVin = async () => {
     if (vin.length !== 17) {
       setVinError("VIN must be exactly 17 characters");
@@ -124,6 +90,7 @@ export default function CarProfileScreen({ onSave }) {
       const decodedMake = getValue("Make");
       const decodedModel = getValue("Model");
       const decodedCylinders = getValue("Number of Cylinders");
+      const decodedDisplacement = getValue("Displacement (L)");
 
       if (!decodedYear && !decodedMake) {
         setVinError("Could not decode this VIN. Please enter details manually.");
@@ -138,16 +105,23 @@ export default function CarProfileScreen({ onSave }) {
       }
       if (decodedModel) setModel(decodedModel);
 
-      if (decodedCylinders) {
+      if (decodedDisplacement && decodedCylinders) {
+        const disp = parseFloat(decodedDisplacement).toFixed(1);
         const cyl = parseInt(decodedCylinders);
-        if (cyl === 3) setEngine("3-Cylinder");
-        else if (cyl === 4) setEngine("4-Cylinder");
-        else if (cyl === 5) setEngine("5-Cylinder");
+        if (cyl <= 4) setEngine(`${disp}L ${cyl}-Cylinder`);
+        else if (cyl === 6) setEngine(`${disp}L V6`);
+        else if (cyl === 8) setEngine(`${disp}L V8`);
+        else if (cyl === 10) setEngine(`${disp}L V10`);
+        else if (cyl === 12) setEngine(`${disp}L V12`);
+        else setEngine(`${disp}L`);
+      } else if (decodedCylinders) {
+        const cyl = parseInt(decodedCylinders);
+        if (cyl === 4) setEngine("4-Cylinder");
         else if (cyl === 6) setEngine("V6");
         else if (cyl === 8) setEngine("V8");
-        else if (cyl === 10) setEngine("V10");
-        else if (cyl === 12) setEngine("V12");
       }
+
+      setVinDecoded(true);
 
     } catch (e) {
       setVinError("Error decoding VIN. Please enter details manually.");
@@ -168,27 +142,39 @@ export default function CarProfileScreen({ onSave }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <View style={styles.header}>
-        <Text style={styles.headerText}>AutoDoc</Text>
-        <Text style={styles.subHeader}>Set Up Your Car</Text>
+        {onCancel ? (
+          <TouchableOpacity onPress={onCancel} style={styles.cancelBtn}>
+            <Text style={styles.cancelText}>← Back</Text>
+          </TouchableOpacity>
+        ) : <View style={{ width: 60 }} />}
+        <Text style={styles.headerTitle}>Add Vehicle</Text>
+        <View style={{ width: 60 }} />
       </View>
 
-      <View style={styles.form}>
+      <ScrollView
+        style={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
         <Text style={styles.title}>Tell us about your car</Text>
         <Text style={styles.subtitle}>This helps AutoDoc give you more accurate diagnoses</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {/* VIN Decoder */}
-        <Text style={styles.label}>VIN (optional — auto-fills details)</Text>
+        <Text style={styles.label}>VIN (auto-fills everything)</Text>
         <View style={styles.vinRow}>
           <TextInput
             style={styles.vinInput}
             placeholder="Enter 17-digit VIN"
             placeholderTextColor="#888"
             value={vin}
-            onChangeText={(text) => { setVin(text.toUpperCase()); setVinError(""); }}
+            onChangeText={(text) => { setVin(text.toUpperCase()); setVinError(""); setVinDecoded(false); }}
             maxLength={17}
             autoCapitalize="characters"
           />
@@ -205,9 +191,7 @@ export default function CarProfileScreen({ onSave }) {
           </TouchableOpacity>
         </View>
         {vinError ? <Text style={styles.vinError}>{vinError}</Text> : null}
-        {vin.length === 17 && year && make ? (
-          <Text style={styles.vinSuccess}>✅ VIN decoded successfully!</Text>
-        ) : null}
+        {vinDecoded && <Text style={styles.vinSuccess}>✅ VIN decoded! Review details below.</Text>}
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
@@ -216,19 +200,19 @@ export default function CarProfileScreen({ onSave }) {
         </View>
 
         {/* Year */}
-        <Text style={styles.label}>Year</Text>
+        <Text style={styles.label}>Year *</Text>
         <TextInput
           style={styles.input}
           placeholder="e.g. 2019"
           placeholderTextColor="#888"
           value={year}
-          onChangeText={(text) => { setYear(text); setModel(""); setEngine(""); }}
+          onChangeText={(text) => { setYear(text); setVinDecoded(false); }}
           keyboardType="numeric"
           maxLength={4}
         />
 
         {/* Make */}
-        <Text style={styles.label}>Make</Text>
+        <Text style={styles.label}>Make *</Text>
         <TouchableOpacity style={styles.dropdown} onPress={() => setShowMakePicker(true)}>
           <Text style={make ? styles.dropdownSelected : styles.dropdownPlaceholder}>
             {make || "Select your car make..."}
@@ -238,9 +222,9 @@ export default function CarProfileScreen({ onSave }) {
 
         {/* Model */}
         <Text style={styles.label}>
-          Model {fetchingModels ? "  🔄 Loading models..." : modelOptions.length > 0 ? `  (${modelOptions.length} found)` : ""}
+          Model * {fetchingModels ? "  🔄 Loading..." : modelOptions.length > 0 ? `  (${modelOptions.length} found)` : ""}
         </Text>
-        {modelOptions.length > 0 ? (
+        {modelOptions.length > 0 && !vinDecoded ? (
           <TouchableOpacity
             style={[styles.dropdown, fetchingModels && styles.dropdownDisabled]}
             onPress={() => !fetchingModels && setShowModelPicker(true)}
@@ -257,7 +241,7 @@ export default function CarProfileScreen({ onSave }) {
         ) : (
           <TextInput
             style={styles.input}
-            placeholder={fetchingModels ? "Loading models..." : year.length === 4 && make ? "No models found — type manually" : "e.g. XC90, M3, Civic"}
+            placeholder={fetchingModels ? "Loading models..." : "e.g. XC90, M3, Civic"}
             placeholderTextColor="#888"
             value={model}
             onChangeText={setModel}
@@ -266,22 +250,14 @@ export default function CarProfileScreen({ onSave }) {
         )}
 
         {/* Engine */}
-        <Text style={styles.label}>
-          Engine Size {fetchingEngines ? "  🔄 Looking up engines..." : engineOptions.length < ENGINE_SIZES.length ? "  ✅ Options loaded" : ""}
-        </Text>
-        <TouchableOpacity
-          style={[styles.dropdown, fetchingEngines && styles.dropdownDisabled]}
-          onPress={() => !fetchingEngines && setShowEnginePicker(true)}
-        >
-          {fetchingEngines ? (
-            <ActivityIndicator size="small" color="#888" />
-          ) : (
-            <Text style={engine ? styles.dropdownSelected : styles.dropdownPlaceholder}>
-              {engine || "Select engine size..."}
-            </Text>
-          )}
-          <Text style={styles.dropdownArrow}>▼</Text>
-        </TouchableOpacity>
+        <Text style={styles.label}>Engine Size (optional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 3.2L V6, 2.0T, 5.0L V8"
+          placeholderTextColor="#888"
+          value={engine}
+          onChangeText={setEngine}
+        />
 
         {/* Mileage */}
         <Text style={styles.label}>Mileage (optional)</Text>
@@ -297,7 +273,9 @@ export default function CarProfileScreen({ onSave }) {
         <TouchableOpacity style={styles.btn} onPress={handleSave}>
           <Text style={styles.btnText}>Save My Car</Text>
         </TouchableOpacity>
-      </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
 
       {/* Make Picker Modal */}
       <Modal visible={showMakePicker} animationType="slide" transparent>
@@ -368,43 +346,18 @@ export default function CarProfileScreen({ onSave }) {
           </View>
         </View>
       </Modal>
-
-      {/* Engine Picker Modal */}
-      <Modal visible={showEnginePicker} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Engine Size</Text>
-              <TouchableOpacity onPress={() => setShowEnginePicker(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={engineOptions}
-              keyExtractor={item => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.makeItem, engine === item && styles.makeItemSelected]}
-                  onPress={() => { setEngine(item); setShowEnginePicker(false); }}
-                >
-                  <Text style={[styles.makeItemText, engine === item && styles.makeItemTextSelected]}>{item}</Text>
-                  {engine === item && <Text style={styles.checkmark}>✓</Text>}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0e" },
-  header: { backgroundColor: "#161618", paddingTop: 60, paddingBottom: 20, alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
-  headerText: { color: "#f5a623", fontSize: 28, fontWeight: "bold" },
-  subHeader: { color: "#888", fontSize: 14, marginTop: 4 },
-  form: { padding: 24 },
+  header: { backgroundColor: "#161618", paddingTop: 60, paddingBottom: 16, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2e2e33" },
+  headerTitle: { color: "#f5a623", fontSize: 18, fontWeight: "bold" },
+  cancelBtn: { width: 60 },
+  cancelText: { color: "#f5a623", fontSize: 14 },
+  scroll: { flex: 1 },
+  scrollContent: { padding: 24 },
   title: { color: "#e8e6e0", fontSize: 22, fontWeight: "bold", marginBottom: 8 },
   subtitle: { color: "#888", fontSize: 14, marginBottom: 24, lineHeight: 20 },
   error: { color: "#e05a5a", fontSize: 13, marginBottom: 12 },
@@ -425,7 +378,7 @@ const styles = StyleSheet.create({
   dropdownPlaceholder: { color: "#888", fontSize: 14 },
   dropdownSelected: { color: "#e8e6e0", fontSize: 14 },
   dropdownArrow: { color: "#888", fontSize: 12 },
-  btn: { backgroundColor: "#f5a623", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 32, marginBottom: 40 },
+  btn: { backgroundColor: "#f5a623", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 32 },
   btnText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 16 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
   modalContent: { backgroundColor: "#161618", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "80%", paddingBottom: 20 },
