@@ -143,6 +143,8 @@ export default function App() {
   const scrollViewRef = useRef(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [showCarsDropdown, setShowCarsDropdown] = useState(false);
+  const [showOBDModal, setShowOBDModal] = useState(false);
+  const [obdCode, setObdCode] = useState("");
 
   useEffect(() => {
     checkSavedLogin();
@@ -501,18 +503,22 @@ export default function App() {
         </View>
       )}
 
-      {showMediaOptions && (
-        <View style={styles.mediaOptions}>
-          <TouchableOpacity style={styles.mediaOption} onPress={() => { takePhoto(); setShowMediaOptions(false); }}>
-            <Text style={styles.mediaOptionIcon}>📷</Text>
-            <Text style={styles.mediaOptionText}>Camera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.mediaOption} onPress={() => { pickImage(); setShowMediaOptions(false); }}>
-            <Text style={styles.mediaOptionIcon}>🖼</Text>
-            <Text style={styles.mediaOptionText}>Gallery</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+          {showMediaOptions && (
+      <View style={styles.mediaOptions}>
+        <TouchableOpacity style={styles.mediaOption} onPress={() => { takePhoto(); setShowMediaOptions(false); }}>
+          <Text style={styles.mediaOptionIcon}>📷</Text>
+          <Text style={styles.mediaOptionText}>Camera</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.mediaOption} onPress={() => { pickImage(); setShowMediaOptions(false); }}>
+          <Text style={styles.mediaOptionIcon}>🖼</Text>
+          <Text style={styles.mediaOptionText}>Gallery</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.mediaOption} onPress={() => { setShowMediaOptions(false); setShowOBDModal(true); }}>
+          <Text style={styles.mediaOptionIcon}>🔢</Text>
+          <Text style={styles.mediaOptionText}>OBD Code</Text>
+        </TouchableOpacity>
+      </View>
+    )}
 
       <View style={styles.inputRow}>
         <TouchableOpacity
@@ -589,6 +595,48 @@ export default function App() {
           </KeyboardAvoidingView>
         </View>
       )}
+
+        {/* OBD Code Modal */}
+<Modal visible={showOBDModal} animationType="slide" transparent>
+  <KeyboardAvoidingView style={styles.vehicleModal} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <View style={styles.vehicleModalContent}>
+      <Text style={styles.vehicleModalTitle}>🔢 OBD-II Code Lookup</Text>
+      <Text style={{color: "#888", fontSize: 13, textAlign: "center", marginBottom: 16}}>
+        Enter a diagnostic trouble code to get a full analysis
+      </Text>
+      <TextInput
+        style={styles.diffInput}
+        placeholder="e.g. P0420, P0300, C0035"
+        placeholderTextColor="#888"
+        value={obdCode}
+        onChangeText={(text) => setObdCode(text.toUpperCase())}
+        autoCapitalize="characters"
+        autoFocus
+        maxLength={6}
+      />
+      <TouchableOpacity
+        style={[styles.vehicleOption, { backgroundColor: "#f5a623" }]}
+        onPress={() => {
+          if (!obdCode.trim()) return;
+          setShowOBDModal(false);
+          setShowMediaOptions(false);
+          const msg = `Diagnose OBD-II trouble code: ${obdCode}. Explain what this code means for my vehicle and provide the full diagnosis including all causes, how to diagnose it myself, costs, potential damage, and immediate actions.`;
+          setPendingMessage(msg);
+          setPendingImage(null);
+          setShowVehicleSelector(true);
+          setObdCode("");
+        }}
+      >
+        <Text style={[styles.vehicleOptionText, { color: "#0d0d0e", fontWeight: "bold" }]}>
+          Analyze Code →
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.vehicleCancel} onPress={() => { setShowOBDModal(false); setObdCode(""); }}>
+        <Text style={styles.vehicleCancelText}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  </KeyboardAvoidingView>
+</Modal>
 
       <CarSelectorModal
         visible={showCarSelector}
@@ -707,7 +755,7 @@ export default function App() {
                   <Text style={styles.menuNoRecalls}>✅ No active recalls found</Text>
                 ) : (
                   recalls.map((recall, i) => (
-                    <View key={i} style={styles.menuRecallCard}>
+                    <View key={`recall-${i}`} style={styles.menuRecallCard}>
                       <Text style={styles.menuRecallComponent}>{recall.Component}</Text>
                       <Text style={styles.menuRecallSummary} numberOfLines={2}>{recall.Summary}</Text>
                     </View>
@@ -721,8 +769,8 @@ export default function App() {
                 {savedDiagnoses.length === 0 ? (
                   <Text style={styles.menuNoDiagnoses}>No saved diagnoses yet</Text>
                 ) : (
-                  savedDiagnoses.map((diag) => (
-                    <TouchableOpacity key={diag.id} style={styles.menuDiagItem} onPress={() => loadDiagnosis(diag)}>
+                  savedDiagnoses.map((diag, i) => (
+                    <TouchableOpacity key={diag.id || `diag-${i}`} style={styles.menuDiagItem} onPress={() => loadDiagnosis(diag)}>
                       <View style={styles.menuDiagContent}>
                         <Text style={styles.menuDiagProblem} numberOfLines={1}>{diag.problem}</Text>
                         <Text style={styles.menuDiagMeta}>{diag.car} · {diag.date}</Text>
