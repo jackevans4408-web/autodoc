@@ -159,7 +159,25 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
     setAnalyzing(true);
     try {
       const body = {
-        text: `Analyze this mechanic repair quote for my ${car?.year} ${car?.make} ${car?.model}. For each line item: 1) Necessary or upsell? 2) Fair price or inflated? 3) DIY possible? 4) Urgent or can wait? End with a summary of what to actually get done.`,
+        text: `Analyze this mechanic repair quote for my ${car?.year} ${car?.make} ${car?.model}. Return ONLY this exact format, no extra text or paragraphs:
+
+        ✅ NECESSARY
+        - [Item] $[price] — [Fair price / Slightly high / Overpriced] (DIY $[price] if applicable)
+
+        ⚠️ OPTIONAL / CAN WAIT
+        - [Item] $[price] — [brief reason]
+
+        🚨 OVERPRICED / SKIP
+        - [Item] $[price] — [brief reason]
+
+        ⚠️ IF LEFT UNFIXED
+        - [Item]: [one sentence on damage risk and cost if ignored]
+
+        💰 BOTTOM LINE
+        Pay: [items] = $[total]
+        Skip: $[amount saved]
+
+        Be concise. One line per item. No paragraphs.`,
         image_base64: selectedImage.base64,
         image_type: "image/jpeg",
         car_year: car?.year,
