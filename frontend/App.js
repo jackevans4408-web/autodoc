@@ -142,7 +142,7 @@ export default function App() {
   const [loadingRecalls, setLoadingRecalls] = useState(false);
   const scrollViewRef = useRef(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const [showCarsDropdown, setShowCarsDropdown] = useState(true);
+  const [showCarsDropdown, setShowCarsDropdown] = useState(false);
 
   useEffect(() => {
     checkSavedLogin();
@@ -643,9 +643,9 @@ export default function App() {
 
                 {showCarsDropdown && (
                   <View>
-                    {cars.map((c) => (
+                    {cars.map((c, index) => (
                       <TouchableOpacity
-                        key={c.id}
+                        key={c.id || `car-${index}`}
                         style={[styles.menuVehicleCard, car?.id === c.id && styles.menuVehicleCardActive]}
                         onPress={async () => {
                           setCar(c);
