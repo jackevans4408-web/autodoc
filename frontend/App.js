@@ -141,6 +141,7 @@ export default function App() {
   const [recalls, setRecalls] = useState(null);
   const [loadingRecalls, setLoadingRecalls] = useState(false);
   const scrollViewRef = useRef(null);
+  const abortControllerRef = useRef(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [showCarsDropdown, setShowCarsDropdown] = useState(false);
   const [showOBDModal, setShowOBDModal] = useState(false);
@@ -290,10 +291,18 @@ export default function App() {
     await SecureStore.setItemAsync("savedDiagnoses", JSON.stringify(updated));
   };
 
+  const cancelDiagnosis = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setDiagnosing(false);
+    }
+  };
+
   const sendMessage = async (overrideCar = null, directMessage = null) => {
     const userMessage = directMessage !== null ? directMessage : (pendingMessage !== null ? pendingMessage : message);
     const userImage = pendingImage !== null ? pendingImage : selectedImage;
     if (!userMessage.trim() && !userImage) return;
+    
 
     setMessage("");
     setSelectedImage(null);
@@ -324,10 +333,12 @@ export default function App() {
         body.image_base64 = userImage.base64;
         body.image_type = "image/jpeg";
       }
+      abortControllerRef.current = new AbortController();
       const response = await fetch("https://autodoc-production-1703.up.railway.app/diagnose", {
         method: "POST",
         headers: { "Accept": "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: abortControllerRef.current.signal,
       });
       const data = await response.json();
 
@@ -351,9 +362,10 @@ export default function App() {
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 
     } catch (error) {
-      setMessages(prev => [...prev, { role: "bot", text: "Error: " + error.message }]);
+      if (error.name !== "AbortError") {
+        setMessages(prev => [...prev, { role: "bot", text: "Error: " + error.message }]);
+      }
     }
-    setDiagnosing(false);
   };
 
   const signOut = async () => {
@@ -540,22 +552,28 @@ export default function App() {
           placeholderTextColor="#888"
           multiline
         />
-        <TouchableOpacity style={styles.sendBtn} onPress={() => {
-          if (!message.trim() && !selectedImage) return;
-          Keyboard.dismiss();
-          setShowMediaOptions(false);
-          if (conversationHistory.length > 0) {
-            const msgToSend = message;
-            setMessage("");
-            sendMessage(car, msgToSend);
-          } else {
-            setPendingMessage(message);
-            setPendingImage(selectedImage);
-            setShowVehicleSelector(true);
-          }
-        }}>
-          <Text style={styles.sendText}>↑</Text>
-        </TouchableOpacity>
+        {diagnosing ? (
+          <TouchableOpacity style={styles.stopBtn} onPress={cancelDiagnosis}>
+            <Text style={styles.stopText}>■</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.sendBtn} onPress={() => {
+            if (!message.trim() && !selectedImage) return;
+            Keyboard.dismiss();
+            setShowMediaOptions(false);
+            if (conversationHistory.length > 0) {
+              const msgToSend = message;
+              setMessage("");
+              sendMessage(car, msgToSend);
+            } else {
+              setPendingMessage(message);
+              setPendingImage(selectedImage);
+              setShowVehicleSelector(true);
+            }
+          }}>
+            <Text style={styles.sendText}>↑</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {showVehicleSelector && (
@@ -685,7 +703,12 @@ export default function App() {
                   style={styles.menuSectionHeader} 
                   onPress={() => setShowCarsDropdown(!showCarsDropdown)}
                 >
-                  <Text style={styles.menuSectionLabel}>My Vehicles</Text>
+                  <View>
+                    <Text style={styles.menuSectionLabel}>My Vehicles</Text>
+                    {!showCarsDropdown && car && (
+                      <Text style={styles.menuActiveCar}>🚗 {car.year} {car.make} {car.model}</Text>
+                    )}
+                  </View>
                   <Text style={styles.menuSectionArrow}>{showCarsDropdown ? "▲" : "▼"}</Text>
                 </TouchableOpacity>
 
@@ -920,5 +943,8 @@ const styles = StyleSheet.create({
   menuClearCarsBtn: { marginHorizontal: 16, padding: 12, alignItems: "center", marginBottom: 8 },
   menuClearCarsText: { color: "#e05a5a", fontSize: 13 },
   menuSectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8 },
-  menuSectionArrow: { color: "#888", fontSize: 11 },
+  menuSectionArrow: { color: "#f5a623", fontSize: 16, fontWeight: "bold" },
+  menuActiveCar: { color: "#e8e6e0", fontSize: 12, marginTop: 2 },
+  stopBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#e05a5a", justifyContent: "center", alignItems: "center" },
+stopText: { color: "#fff", fontSize: 14, fontWeight: "bold" },
 });
