@@ -601,6 +601,7 @@ export default function App() {
                   </TouchableOpacity>
                 </View>
               )}
+              <View style={styles.vehicleCancelRow}>
               <TouchableOpacity style={styles.vehicleCancel} onPress={() => {
                 setShowVehicleSelector(false);
                 setPendingMessage(null);
@@ -610,6 +611,12 @@ export default function App() {
               }}>
                 <Text style={styles.vehicleCancelText}>Cancel</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.vehicleSkip} onPress={() => {
+                sendMessage({});
+              }}>
+                <Text style={styles.vehicleSkipText}>Skip →</Text>
+              </TouchableOpacity>
+            </View>
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -947,5 +954,10 @@ const styles = StyleSheet.create({
   menuSectionArrow: { color: "#f5a623", fontSize: 16, fontWeight: "bold" },
   menuActiveCar: { color: "#e8e6e0", fontSize: 12, marginTop: 2 },
   stopBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#e05a5a", justifyContent: "center", alignItems: "center" },
-stopText: { color: "#fff", fontSize: 14, fontWeight: "bold" },
+  stopText: { color: "#fff", fontSize: 14, fontWeight: "bold" },
+  vehicleCancelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12 },
+  vehicleCancel: { padding: 12 },
+  vehicleCancelText: { color: "#e05a5a", fontSize: 14, fontWeight: "500" },
+  vehicleSkip: { padding: 12 },
+  vehicleSkipText: { color: "#f5a623", fontSize: 14, fontWeight: "500" },
 });
