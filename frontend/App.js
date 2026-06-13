@@ -1,3 +1,4 @@
+import LoadingScreen from "./LoadingScreen";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, KeyboardAvoidingView, Platform, Keyboard, Modal, Animated } from "react-native";
 import { useState, useEffect, useRef } from "react";
@@ -9,6 +10,7 @@ import QuoteHistoryScreen from "./QuoteHistoryScreen";
 import SettingsScreen from "./SettingsScreen";
 import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
+
 
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
@@ -117,6 +119,7 @@ function FormattedDiagnosis({ text }) {
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showIntro, setShowIntro] = useState(true);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [diagnosing, setDiagnosing] = useState(false);
@@ -399,12 +402,8 @@ export default function App() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color="#f5a623" />
-      </View>
-    );
+  if (showIntro) {
+    return <LoadingScreen onFinish={() => setShowIntro(false)} />;
   }
 
   if (!session) {
