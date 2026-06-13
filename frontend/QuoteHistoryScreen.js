@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform, Image, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Keyboard } from "react-native";
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
@@ -51,10 +51,19 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
   const [editingMaintenance, setEditingMaintenance] = useState(null);
   const [maintData, setMaintData] = useState({});
   const [maintInterval, setMaintInterval] = useState("");
+  const [quoteLineItems, setQuoteLineItems] = useState([]);
+  const [selectedRepairs, setSelectedRepairs] = useState({});
+  const [repairCosts, setRepairCosts] = useState({});
+  const [selectedCarForRepair, setSelectedCarForRepair] = useState(null);
+  const [extraRepairs, setExtraRepairs] = useState([{ name: "", cost: "" }]);
+  const [showRepairLogger, setShowRepairLogger] = useState(false);
+
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (cars.length > 0) setSelectedCarForRepair(cars[0]);
+    else if (car) setSelectedCarForRepair(car);
+  }, [cars, car]);
 
   const loadData = async () => {
     try {
@@ -68,12 +77,83 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
       if (savedMileages) setCarMileages(JSON.parse(savedMileages));
       if (savedMaintenance) setMaintenance(JSON.parse(savedMaintenance));
       if (savedActive) setActiveMaintenanceItems(JSON.parse(savedActive));
-    } catch (e) {
-      console.log("Error loading data:", e);
-    }
+    } catch (e) { console.log("Error loading data:", e); }
   };
 
   const totalSpent = repairs.reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0);
+
+  const parseLineItems = (analysisText) => {
+    const lines = analysisText.split('\n');
+    const items = [];
+    lines.forEach(line => {
+      const cleaned = line.replace(/^[-•]\s*/, '').trim();
+      if (cleaned && !cleaned.startsWith('✅') && !cleaned.startsWith('⚠️') &&
+          !cleaned.startsWith('🚨') && !cleaned.startsWith('💰') &&
+          !cleaned.startsWith('Pay:') && !cleaned.startsWith('Skip:') &&
+          cleaned.length > 3) {
+        const match = cleaned.match(/^(.+?)\s*\$/);
+        if (match) {
+          const name = match[1].trim();
+          if (name.length > 2) items.push(name);
+        }
+      }
+    });
+    return [...new Set(items)].filter(i => i.length > 2);
+  };
+
+  const openRepairLogger = (analysisText) => {
+    if (!analysisText) return;
+    const items = parseLineItems(analysisText);
+    if (items.length === 0) {
+      alert("Could not parse line items from this quote. Try logging repairs manually.");
+      return;
+    }
+    setQuoteLineItems(items);
+    const initialSelected = {};
+    const initialCosts = {};
+    items.forEach((item, i) => { initialSelected[i] = false; initialCosts[i] = ""; });
+    setSelectedRepairs(initialSelected);
+    setRepairCosts(initialCosts);
+    setExtraRepairs([{ name: "", cost: "" }]);
+    setShowRepairLogger(true);
+  };
+
+  const saveRepairsFromQuote = async () => {
+    const newRepairs = [];
+    quoteLineItems.forEach((item, i) => {
+      if (selectedRepairs[i]) {
+        newRepairs.push({
+          id: Date.now().toString() + i,
+          name: item,
+          date: new Date().toLocaleDateString(),
+          cost: repairCosts[i] || "0",
+          mileage: "",
+          notes: `From quote — ${selectedCarForRepair?.year} ${selectedCarForRepair?.make} ${selectedCarForRepair?.model}`,
+        });
+      }
+    });
+    extraRepairs.forEach((r, i) => {
+      if (r.name.trim()) {
+        newRepairs.push({
+          id: Date.now().toString() + "extra" + i,
+          name: r.name,
+          date: new Date().toLocaleDateString(),
+          cost: r.cost || "0",
+          mileage: "",
+          notes: `From quote — ${selectedCarForRepair?.year} ${selectedCarForRepair?.make} ${selectedCarForRepair?.model}`,
+        });
+      }
+    });
+    if (newRepairs.length === 0) { alert("Please select at least one repair!"); return; }
+    const updated = [...newRepairs, ...repairs];
+    setRepairs(updated);
+    await SecureStore.setItemAsync("repairHistory", JSON.stringify(updated));
+    setShowRepairLogger(false);
+    setQuoteLineItems([]);
+    setSelectedRepairs({});
+    setRepairCosts({});
+    setExtraRepairs([{ name: "", cost: "" }]);
+  };
 
   const saveCarMileage = async (carId, mileage) => {
     const updated = { ...carMileages, [carId]: mileage };
@@ -89,8 +169,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
     const current = parseFloat(currentMileage);
     const lastMileage = parseFloat(data.lastMileage);
     const interval = parseFloat(data.interval || defaultInterval);
-    const milesRemaining = (lastMileage + interval) - current;
-    return milesRemaining;
+    return (lastMileage + interval) - current;
   };
 
   const saveMaintenanceForCar = async (itemKey, carId, lastMileage, interval) => {
@@ -105,9 +184,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
   };
 
   const addMaintenanceItem = async (item) => {
-    if (activeMaintenanceItems.find(i => i.key === item.key)) {
-      alert("Already in your list!"); return;
-    }
+    if (activeMaintenanceItems.find(i => i.key === item.key)) { alert("Already in your list!"); return; }
     const updated = [...activeMaintenanceItems, item];
     setActiveMaintenanceItems(updated);
     await SecureStore.setItemAsync("activeMaintenanceItems", JSON.stringify(updated));
@@ -123,35 +200,26 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) { alert("Permission required!"); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true, quality: 0.8, base64: true,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 0.8, base64: true });
     if (!result.canceled) { setSelectedImage(result.assets[0]); setAnalysis(null); }
   };
 
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) { alert("Permission required!"); return; }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true, quality: 0.8, base64: true,
-    });
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8, base64: true });
     if (!result.canceled) { setSelectedImage(result.assets[0]); setAnalysis(null); }
   };
 
   const pickDocument = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["image/*", "application/pdf"],
-        copyToCacheDirectory: true,
-      });
+      const result = await DocumentPicker.getDocumentAsync({ type: ["image/*", "application/pdf"], copyToCacheDirectory: true });
       if (!result.canceled && result.assets?.[0]) {
         const asset = result.assets[0];
         setSelectedImage({ uri: asset.uri, base64: null, name: asset.name, isDocument: true });
         setAnalysis(null);
       }
-    } catch (e) {
-      alert("Error picking document");
-    }
+    } catch (e) { alert("Error picking document"); }
   };
 
   const analyzeQuote = async () => {
@@ -200,9 +268,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
       const updated = [newQuote, ...quotes];
       setQuotes(updated);
       await SecureStore.setItemAsync("savedQuotes", JSON.stringify(updated));
-    } catch (e) {
-      alert("Error analyzing quote. Try again.");
-    }
+    } catch (e) { alert("Error analyzing quote. Try again."); }
     setAnalyzing(false);
   };
 
@@ -293,7 +359,12 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
                   </View>
                   <Image source={{ uri: quote.imageUri }} style={styles.quoteThumbnail} />
                   {expandedQuote === quote.id ? (
-                    <Text style={styles.quoteAnalysisFull}>{quote.analysis}</Text>
+                    <View>
+                      <Text style={styles.quoteAnalysisFull}>{quote.analysis}</Text>
+                      <TouchableOpacity style={styles.logRepairsBtn} onPress={() => openRepairLogger(quote.analysis)}>
+                        <Text style={styles.logRepairsBtnText}>🔧 Log Repairs from This Quote</Text>
+                      </TouchableOpacity>
+                    </View>
                   ) : (
                     <Text style={styles.quoteAnalysisPreview} numberOfLines={3}>{quote.analysis}</Text>
                   )}
@@ -305,13 +376,11 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
 
         {activeTab === "history" && (
           <View>
-            {/* Total Spent */}
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>💰 Total Spent</Text>
               <Text style={styles.summaryAmount}>${totalSpent.toFixed(2)}</Text>
             </View>
 
-            {/* Vehicle Mileage Cards */}
             <Text style={styles.sectionTitle}>🚗 My Vehicles</Text>
             {displayCars.map((c) => {
               const carId = c.id || c.make + c.model + c.year;
@@ -319,32 +388,14 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
               const isExpanded = expandedMileageCar === carId;
               return (
                 <View key={carId}>
-                  <TouchableOpacity
-                    style={styles.mileageCard}
-                    onPress={() => {
-                      setExpandedMileageCar(isExpanded ? null : carId);
-                      setMileageInputs(prev => ({ ...prev, [carId]: mileage || "" }));
-                    }}
-                  >
+                  <TouchableOpacity style={styles.mileageCard} onPress={() => { setExpandedMileageCar(isExpanded ? null : carId); setMileageInputs(prev => ({ ...prev, [carId]: mileage || "" })); }}>
                     <Text style={styles.mileageLabel}>🚗 {c.year} {c.make} {c.model}</Text>
-                    <Text style={styles.mileageValue}>
-                      {mileage ? `${parseFloat(mileage).toLocaleString()} mi` : "Tap to set"}
-                    </Text>
+                    <Text style={styles.mileageValue}>{mileage ? `${parseFloat(mileage).toLocaleString()} mi` : "Tap to set"}</Text>
                   </TouchableOpacity>
                   {isExpanded && (
                     <View style={styles.mileageInputRow}>
-                      <TextInput
-                        style={styles.mileageInput}
-                        placeholder="Enter current mileage"
-                        placeholderTextColor="#888"
-                        value={mileageInputs[carId] || ""}
-                        onChangeText={(val) => setMileageInputs(prev => ({ ...prev, [carId]: val }))}
-                        keyboardType="numeric"
-                      />
-                      <TouchableOpacity
-                        style={styles.mileageSaveBtn}
-                        onPress={() => saveCarMileage(carId, mileageInputs[carId])}
-                      >
+                      <TextInput style={styles.mileageInput} placeholder="Enter current mileage" placeholderTextColor="#888" value={mileageInputs[carId] || ""} onChangeText={(val) => setMileageInputs(prev => ({ ...prev, [carId]: val }))} keyboardType="numeric" />
+                      <TouchableOpacity style={styles.mileageSaveBtn} onPress={() => saveCarMileage(carId, mileageInputs[carId])}>
                         <Text style={styles.mileageSaveBtnText}>Save</Text>
                       </TouchableOpacity>
                     </View>
@@ -353,7 +404,6 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
               );
             })}
 
-            {/* Maintenance Schedule */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>🔧 Maintenance Schedule</Text>
               <TouchableOpacity onPress={() => setShowAddMaintenance(true)}>
@@ -379,33 +429,15 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
                     const milesRemaining = getMaintStatusForCar(item.key, carId, item.defaultInterval);
                     const data = maintenance[`${item.key}_${carId}`];
                     return (
-                      <TouchableOpacity
-                        key={carId}
-                        style={styles.maintCarRow}
-                        onPress={() => {
-                          setEditingMaintenance({ ...item, carId });
-                          setMaintData({ lastMileage: data?.lastMileage || "", interval: data?.interval || item.defaultInterval.toString() });
-                          setShowMaintenanceSetup(true);
-                        }}
-                      >
+                      <TouchableOpacity key={carId} style={styles.maintCarRow} onPress={() => { setEditingMaintenance({ ...item, carId }); setMaintData({ lastMileage: data?.lastMileage || "", interval: data?.interval || item.defaultInterval.toString() }); setShowMaintenanceSetup(true); }}>
                         <Text style={styles.maintCarName} numberOfLines={1}>{c.year} {c.make}</Text>
                         {milesRemaining !== null ? (
-                          <View style={[styles.maintBadge,
-                            milesRemaining < 0 ? styles.badgeRed :
-                            milesRemaining < 500 ? styles.badgeYellow :
-                            styles.badgeGreen
-                          ]}>
+                          <View style={[styles.maintBadge, milesRemaining < 0 ? styles.badgeRed : milesRemaining < 500 ? styles.badgeYellow : styles.badgeGreen]}>
                             <Text style={styles.maintBadgeText}>
-                              {milesRemaining < 0
-                                ? `⚠️ ${Math.abs(Math.round(milesRemaining)).toLocaleString()} mi overdue`
-                                : milesRemaining < 500
-                                ? `⚡ ${Math.round(milesRemaining).toLocaleString()} mi left`
-                                : `✅ ${Math.round(milesRemaining).toLocaleString()} mi left`}
+                              {milesRemaining < 0 ? `⚠️ ${Math.abs(Math.round(milesRemaining)).toLocaleString()} mi overdue` : milesRemaining < 500 ? `⚡ ${Math.round(milesRemaining).toLocaleString()} mi left` : `✅ ${Math.round(milesRemaining).toLocaleString()} mi left`}
                             </Text>
                           </View>
-                        ) : (
-                          <Text style={styles.maintSetup}>Tap to set up →</Text>
-                        )}
+                        ) : <Text style={styles.maintSetup}>Tap to set up →</Text>}
                       </TouchableOpacity>
                     );
                   })}
@@ -413,7 +445,6 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
               ))
             )}
 
-            {/* Repair Log */}
             <Text style={styles.sectionTitle}>📋 Repair Log</Text>
             {repairs.length === 0 ? (
               <View style={styles.emptyState}>
@@ -489,31 +520,9 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
                 🚗 {displayCars.find(c => (c.id || c.make + c.model + c.year) === editingMaintenance.carId)?.year} {displayCars.find(c => (c.id || c.make + c.model + c.year) === editingMaintenance.carId)?.make} {displayCars.find(c => (c.id || c.make + c.model + c.year) === editingMaintenance.carId)?.model}
               </Text>
             )}
-            <TextInput
-              style={styles.input}
-              placeholder="Last service mileage (e.g. 82000)"
-              placeholderTextColor="#888"
-              value={maintData.lastMileage || ""}
-              onChangeText={(val) => setMaintData(prev => ({ ...prev, lastMileage: val }))}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder={`Interval in miles (default: ${editingMaintenance?.defaultInterval?.toLocaleString()})`}
-              placeholderTextColor="#888"
-              value={maintData.interval || ""}
-              onChangeText={(val) => setMaintData(prev => ({ ...prev, interval: val }))}
-              keyboardType="numeric"
-            />
-            <TouchableOpacity
-              style={styles.saveBtn}
-              onPress={() => saveMaintenanceForCar(
-                editingMaintenance.key,
-                editingMaintenance.carId,
-                maintData.lastMileage,
-                maintData.interval || editingMaintenance.defaultInterval
-              )}
-            >
+            <TextInput style={styles.input} placeholder="Last service mileage (e.g. 82000)" placeholderTextColor="#888" value={maintData.lastMileage || ""} onChangeText={(val) => setMaintData(prev => ({ ...prev, lastMileage: val }))} keyboardType="numeric" />
+            <TextInput style={styles.input} placeholder={`Interval in miles (default: ${editingMaintenance?.defaultInterval?.toLocaleString()})`} placeholderTextColor="#888" value={maintData.interval || ""} onChangeText={(val) => setMaintData(prev => ({ ...prev, interval: val }))} keyboardType="numeric" />
+            <TouchableOpacity style={styles.saveBtn} onPress={() => saveMaintenanceForCar(editingMaintenance.key, editingMaintenance.carId, maintData.lastMileage, maintData.interval || editingMaintenance.defaultInterval)}>
               <Text style={styles.saveBtnText}>Save</Text>
             </TouchableOpacity>
           </View>
@@ -563,12 +572,100 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
                 <View style={styles.analysisBox}>
                   <Text style={styles.analysisTitle}>📋 Analysis</Text>
                   <Text style={styles.analysisText}>{analysis}</Text>
-                  <TouchableOpacity style={styles.doneBtn} onPress={() => { setShowAddQuote(false); setSelectedImage(null); setAnalysis(null); }}>
+                  <TouchableOpacity style={styles.logRepairsBtn} onPress={() => openRepairLogger(analysis)}>
+                    <Text style={styles.logRepairsBtnText}>🔧 Log Repairs from This Quote</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.doneBtn} onPress={() => { 
+                    setShowAddQuote(false); 
+                    setSelectedImage(null); 
+                    setAnalysis(null);
+                    setQuoteLineItems([]);
+                    setSelectedRepairs({});
+                    setRepairCosts({});
+                    setExtraRepairs([{ name: "", cost: "" }]);
+                  }}>
                     <Text style={styles.doneBtnText}>Done — Saved to History</Text>
                   </TouchableOpacity>
                 </View>
               )}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Repair Logger Modal - completely separate from Add Quote */}
+      <Modal visible={showRepairLogger} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Which repairs did you get done?</Text>
+              <TouchableOpacity onPress={() => setShowRepairLogger(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.extraRepairsLabel}>Select Vehicle</Text>
+              {(cars.length > 0 ? cars : car ? [car] : []).map((c, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.maintOption, { marginBottom: 6 }, selectedCarForRepair?.id === c?.id && { borderColor: "#f5a623", backgroundColor: "#f5a62311" }]}
+                  onPress={() => setSelectedCarForRepair(c)}
+                >
+                  <Text style={styles.maintOptionLabel}>🚗 {c?.year} {c?.make} {c?.model}</Text>
+                  {selectedCarForRepair?.id === c?.id && <Text style={{ color: "#f5a623" }}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+            <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 350 }}>
+              {quoteLineItems.length === 0 ? (
+                <Text style={styles.noItemsText}>No line items found. Add repairs manually below.</Text>
+              ) : (
+                quoteLineItems.map((item, i) => (
+                  <View key={i} style={styles.repairSelectRow}>
+                    <TouchableOpacity style={[styles.repairCheckbox, selectedRepairs[i] && styles.repairCheckboxChecked]} onPress={() => setSelectedRepairs(prev => ({ ...prev, [i]: !prev[i] }))}>
+                      {selectedRepairs[i] && <Text style={styles.checkmark}>✓</Text>}
+                    </TouchableOpacity>
+                    <Text style={styles.repairSelectName} numberOfLines={1}>{item}</Text>
+                    <TextInput
+                      style={styles.repairCostInput}
+                      placeholder="cost + tax"
+                      placeholderTextColor="#555"
+                      value={repairCosts[i] || ""}
+                      onChangeText={(val) => { setRepairCosts(prev => ({ ...prev, [i]: val })); if (val) setSelectedRepairs(prev => ({ ...prev, [i]: true })); }}
+                      keyboardType="numeric"
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                    />
+                  </View>
+                ))
+              )}
+              <Text style={styles.extraRepairsLabel}>+ Additional Repairs</Text>
+              {extraRepairs.map((r, i) => (
+                <View key={i} style={styles.repairSelectRow}>
+                  <TextInput
+                    style={styles.extraRepairName}
+                    placeholder="Repair name"
+                    placeholderTextColor="#555"
+                    value={r.name}
+                    onChangeText={(val) => { const updated = [...extraRepairs]; updated[i] = { ...updated[i], name: val }; setExtraRepairs(updated); }}
+                  />
+                  <TextInput
+                    style={styles.repairCostInput}
+                    placeholder="cost + tax"
+                    placeholderTextColor="#555"
+                    value={r.cost}
+                    onChangeText={(val) => { const updated = [...extraRepairs]; updated[i] = { ...updated[i], cost: val }; setExtraRepairs(updated); }}
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                    onSubmitEditing={() => Keyboard.dismiss()}
+                  />
+                </View>
+              ))}
+              <TouchableOpacity onPress={() => setExtraRepairs([...extraRepairs, { name: "", cost: "" }])}>
+                <Text style={styles.addAnotherBtn}>+ Add Another</Text>
+              </TouchableOpacity>
+            </ScrollView>
+            <TouchableOpacity style={styles.saveBtn} onPress={saveRepairsFromQuote}>
+              <Text style={styles.saveBtnText}>Add to Repair History →</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -660,6 +757,8 @@ const styles = StyleSheet.create({
   quoteAnalysisFull: { color: "#e8e6e0", fontSize: 13, lineHeight: 20, marginTop: 8 },
   quoteCardActions: { flexDirection: "row", alignItems: "center" },
   expandHint: { color: "#f5a623", fontSize: 12 },
+  logRepairsBtn: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 12, alignItems: "center", marginTop: 12, borderWidth: 1, borderColor: "#f5a62344" },
+  logRepairsBtnText: { color: "#f5a623", fontSize: 14, fontWeight: "500" },
   repairCard: { backgroundColor: "#161618", borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: "#2e2e33" },
   repairHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   repairName: { color: "#e8e6e0", fontSize: 15, fontWeight: "600", flex: 1 },
@@ -691,4 +790,18 @@ const styles = StyleSheet.create({
   notesInput: { height: 80, textAlignVertical: "top" },
   saveBtn: { backgroundColor: "#f5a623", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 4, marginBottom: 20 },
   saveBtnText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 16 },
+  carPickerBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#1e1e21", borderRadius: 8, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: "#2e2e33", gap: 8 },
+  carPickerLabel: { color: "#888", fontSize: 13 },
+  carPickerValue: { flex: 1, color: "#e8e6e0", fontSize: 13, fontWeight: "500" },
+  carPickerArrow: { color: "#888", fontSize: 11 },
+  repairSelectRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#2e2e33", gap: 10 },
+  repairCheckbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: "#2e2e33", alignItems: "center", justifyContent: "center" },
+  repairCheckboxChecked: { backgroundColor: "#f5a623", borderColor: "#f5a623" },
+  checkmark: { color: "#0d0d0e", fontSize: 14, fontWeight: "bold" },
+  repairSelectName: { flex: 1, color: "#e8e6e0", fontSize: 13 },
+  repairCostInput: { width: 90, backgroundColor: "#0d0d0e", color: "#e8e6e0", borderRadius: 6, padding: 8, fontSize: 13, borderWidth: 1, borderColor: "#2e2e33", textAlign: "center" },
+  noItemsText: { color: "#888", fontSize: 13, textAlign: "center", padding: 20 },
+  extraRepairsLabel: { color: "#888", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 16, marginBottom: 8 },
+  extraRepairName: { flex: 1, backgroundColor: "#0d0d0e", color: "#e8e6e0", borderRadius: 6, padding: 8, fontSize: 13, borderWidth: 1, borderColor: "#2e2e33" },
+  addAnotherBtn: { color: "#f5a623", fontSize: 13, padding: 8, paddingLeft: 0 },
 });
