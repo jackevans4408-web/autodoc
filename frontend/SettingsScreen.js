@@ -3,12 +3,11 @@ import { useState, useEffect } from "react";
 import PrivacyPolicyScreen from "./PrivacyPolicyScreen";
 import TermsOfServiceScreen from "./TermsOfServiceScreen";
 
-const [showPrivacy, setShowPrivacy] = useState(false);
-const [showTerms, setShowTerms] = useState(false);
-
 export default function SettingsScreen({ car, session, onBack, onSignOut, onShowQuoteHistory }) {
   const [recalls, setRecalls] = useState(null);
   const [loadingRecalls, setLoadingRecalls] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+const [showTerms, setShowTerms] = useState(false);
 
   useEffect(() => {
     if (car?.year && car?.make && car?.model) {
