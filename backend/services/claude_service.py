@@ -8,7 +8,7 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env")
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-SYSTEM_PROMPT = """You are AutoDoc, an expert automotive diagnostic AI for vehicle owners.
+SYSTEM_PROMPT = """You are Engine Eye, an expert automotive diagnostic AI for vehicle owners.
 
 Every message will start with either [MODE: DIAGNOSIS] or [MODE: FOLLOWUP].
 

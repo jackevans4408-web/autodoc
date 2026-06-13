@@ -334,7 +334,7 @@ export default function App() {
         body.image_type = "image/jpeg";
       }
       abortControllerRef.current = new AbortController();
-      const response = await fetch("https://autodoc-production-1703.up.railway.app/diagnose", {
+      const response = await fetch("https://Engine Eye-production-1703.up.railway.app/diagnose", {
         method: "POST",
         headers: { "Accept": "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -452,7 +452,7 @@ export default function App() {
           <View style={styles.menuLine} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerText}>AutoDoc</Text>
+          <Text style={styles.headerText}>Engine Eye</Text>
           <TouchableOpacity style={styles.carSelector} onPress={() => setShowCarSelector(true)}>
             <Text style={styles.carSelectorText} numberOfLines={1}>{car.year} {car.make} {car.model}</Text>
             <Text style={styles.carSelectorArrow}>▼</Text>
@@ -472,7 +472,7 @@ export default function App() {
         {messages.length === 0 && (
           <View style={styles.emptyChat}>
             <Text style={styles.emptyChatIcon}>🔧</Text>
-            <Text style={styles.emptyChatTitle}>AutoDoc</Text>
+            <Text style={styles.emptyChatTitle}>Engine Eye</Text>
             <Text style={styles.emptyChatSub}>Describe your car problem, upload a photo, or attach a mechanic quote</Text>
           </View>
         )}
@@ -502,7 +502,7 @@ export default function App() {
         {diagnosing && (
           <View style={styles.typingIndicator}>
             <ActivityIndicator size="small" color="#f5a623" />
-            <Text style={styles.typingText}>AutoDoc is diagnosing...</Text>
+            <Text style={styles.typingText}>Engine Eye is diagnosing...</Text>
           </View>
         )}
       </ScrollView>
@@ -682,7 +682,7 @@ export default function App() {
             }]}>
               <ScrollView>
                 <View style={styles.menuPanelHeader}>
-                  <Text style={styles.menuPanelTitle}>AutoDoc</Text>
+                  <Text style={styles.menuPanelTitle}>Engine Eye</Text>
                   <TouchableOpacity onPress={closeMenuPanel}>
                     <Text style={styles.menuPanelClose}>✕</Text>
                   </TouchableOpacity>

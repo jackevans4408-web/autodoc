@@ -57,7 +57,7 @@ export default function SettingsScreen({ car, session, onBack, onSignOut, onShow
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
-            <Text style={styles.settingLabel}>⭐ Rate AutoDoc</Text>
+            <Text style={styles.settingLabel}>⭐ Rate Engine Eye</Text>
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
         </View>

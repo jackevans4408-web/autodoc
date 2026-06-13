@@ -184,7 +184,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
         car_make: car?.make,
         car_model: car?.model,
       };
-      const response = await fetch("https://autodoc-production-1703.up.railway.app/diagnose", {
+      const response = await fetch("https://Engine Eye-production-1703.up.railway.app/diagnose", {
         method: "POST",
         headers: { "Accept": "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -277,7 +277,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
               <View style={styles.emptyState}>
                 <Text style={styles.emptyIcon}>📄</Text>
                 <Text style={styles.emptyTitle}>No quotes saved yet</Text>
-                <Text style={styles.emptySubtitle}>Upload a mechanic quote and AutoDoc will analyze it for you</Text>
+                <Text style={styles.emptySubtitle}>Upload a mechanic quote and Engine Eye will analyze it for you</Text>
               </View>
             ) : (
               quotes.map(quote => (

@@ -37,7 +37,7 @@ useEffect(() => {
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.logoArea}>
-          <Text style={styles.logo}>AutoDoc</Text>
+          <Text style={styles.logo}>Engine Eye</Text>
           <Text style={styles.tagline}>AI Car Diagnostics</Text>
         </View>
         <View style={styles.form}>

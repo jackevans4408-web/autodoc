@@ -6,7 +6,7 @@ from backend.routes.auth import router as auth_router
 
 load_dotenv()
 
-app = FastAPI(title="AutoDoc API")
+app = FastAPI(title="Engine Eye API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,4 +20,4 @@ app.include_router(auth_router)
 
 @app.get("/")
 def root():
-    return {"message": "AutoDoc API is running!"}
+    return {"message": "Engine Eye API is running!"}

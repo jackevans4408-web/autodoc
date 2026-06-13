@@ -148,13 +148,13 @@ export default function CarProfileScreen({ onSave, onCancel }) {
             <Text style={styles.cancelText}>← Back</Text>
           </TouchableOpacity>
         )}
-        <Text style={styles.headerText}>AutoDoc</Text>
+        <Text style={styles.headerText}>Engine Eye</Text>
         <Text style={styles.subHeader}>Set Up Your Car</Text>
       </View>
 
       <View style={styles.form}>
         <Text style={styles.title}>Tell us about your car</Text>
-        <Text style={styles.subtitle}>This helps AutoDoc give you more accurate diagnoses</Text>
+        <Text style={styles.subtitle}>This helps Engine Eye give you more accurate diagnoses</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
