@@ -334,7 +334,7 @@ export default function App() {
         body.image_type = "image/jpeg";
       }
       abortControllerRef.current = new AbortController();
-      const response = await fetch("https://Engine Eye-production-1703.up.railway.app/diagnose", {
+      const response = await fetch("https://autodoc-production-1703.up.railway.app/diagnose", {
         method: "POST",
         headers: { "Accept": "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(body),
