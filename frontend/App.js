@@ -360,12 +360,14 @@ export default function App() {
       }
 
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
-
+      setDiagnosing(false);
+      
     } catch (error) {
       if (error.name !== "AbortError") {
         setMessages(prev => [...prev, { role: "bot", text: "Error: " + error.message }]);
       }
     }
+    setDiagnosing(false);
   };
 
   const signOut = async () => {
