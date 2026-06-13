@@ -1,5 +1,10 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
+import PrivacyPolicyScreen from "./PrivacyPolicyScreen";
+import TermsOfServiceScreen from "./TermsOfServiceScreen";
+
+const [showPrivacy, setShowPrivacy] = useState(false);
+const [showTerms, setShowTerms] = useState(false);
 
 export default function SettingsScreen({ car, session, onBack, onSignOut, onShowQuoteHistory }) {
   const [recalls, setRecalls] = useState(null);
@@ -23,6 +28,9 @@ export default function SettingsScreen({ car, session, onBack, onSignOut, onShow
     }
     setLoadingRecalls(false);
   };
+
+  if (showPrivacy) return <PrivacyPolicyScreen onBack={() => setShowPrivacy(false)} />;
+  if (showTerms) return <TermsOfServiceScreen onBack={() => setShowTerms(false)} />;
 
   return (
     <View style={styles.container}>
@@ -77,12 +85,12 @@ export default function SettingsScreen({ car, session, onBack, onSignOut, onShow
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
+          <TouchableOpacity style={styles.settingRow} onPress={() => setShowPrivacy(true)}>
             <Text style={styles.settingLabel}>📋 Privacy Policy</Text>
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
+          <TouchableOpacity style={styles.settingRow} onPress={() => setShowTerms(true)}>
             <Text style={styles.settingLabel}>📜 Terms of Service</Text>
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
