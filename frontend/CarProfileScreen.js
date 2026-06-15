@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, FlatList, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { useState, useEffect } from "react";
 
 const ALL_MAKES = [
@@ -56,7 +56,7 @@ export default function CarProfileScreen({ onSave, onCancel }) {
       );
       const data = await response.json();
       if (data.Results && data.Results.length > 0) {
-        const models = data.Results.map(r => r.Model_Name).sort();
+        const models = [...new Set(data.Results.map(r => r.Model_Name))].sort();
         setModelOptions(models);
       } else {
         setModelOptions([]);
@@ -141,6 +141,7 @@ export default function CarProfileScreen({ onSave, onCancel }) {
   };
 
   return (
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         {onCancel && (
@@ -200,6 +201,8 @@ export default function CarProfileScreen({ onSave, onCancel }) {
           onChangeText={(text) => { setYear(text); setVinDecoded(false); }}
           keyboardType="numeric"
           maxLength={4}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
         />
 
         <Text style={styles.label}>Make</Text>
@@ -245,6 +248,8 @@ export default function CarProfileScreen({ onSave, onCancel }) {
           placeholderTextColor="#888"
           value={engine}
           onChangeText={setEngine}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
         />
 
         <Text style={styles.label}>Mileage (optional)</Text>
@@ -255,6 +260,8 @@ export default function CarProfileScreen({ onSave, onCancel }) {
           value={mileage}
           onChangeText={setMileage}
           keyboardType="numeric"
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
         />
 
         <TouchableOpacity style={styles.btn} onPress={handleSave}>
@@ -278,7 +285,6 @@ export default function CarProfileScreen({ onSave, onCancel }) {
               placeholderTextColor="#888"
               value={makeSearch}
               onChangeText={setMakeSearch}
-              autoFocus
             />
             <FlatList
               data={filteredMakes}
@@ -313,7 +319,6 @@ export default function CarProfileScreen({ onSave, onCancel }) {
               placeholderTextColor="#888"
               value={modelSearch}
               onChangeText={setModelSearch}
-              autoFocus
             />
             <FlatList
               data={filteredModels}
@@ -332,6 +337,7 @@ export default function CarProfileScreen({ onSave, onCancel }) {
         </View>
       </Modal>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

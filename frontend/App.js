@@ -191,7 +191,12 @@ export default function App() {
   const loadRecalls = async () => {
     setLoadingRecalls(true);
     try {
-      const url = `https://api.nhtsa.gov/recalls/recallsByVehicle?make=${car.make}&model=${car.model}&modelYear=${car.year}`;
+      let url;
+      if (car.vin && car.vin.length === 17) {
+        url = `https://api.nhtsa.gov/recalls/recallsByVehicle?vin=${car.vin}`;
+      } else {
+        url = `https://api.nhtsa.gov/recalls/recallsByVehicle?make=${car.make}&model=${car.model}&modelYear=${car.year}`;
+      }
       const response = await fetch(url);
       const data = await response.json();
       setRecalls(data.results || []);
@@ -266,12 +271,12 @@ export default function App() {
   const saveDiagnosisToHistory = async (problem, diagnosisText) => {
     const newDiag = {
       id: Date.now().toString(),
-      problem: problem,
-      diagnosis: diagnosisText,
+      problem: problem.substring(0, 100),
+      diagnosis: diagnosisText.substring(0, 500),
       date: new Date().toLocaleDateString(),
       car: `${car?.year} ${car?.make} ${car?.model}`,
     };
-    const updated = [newDiag, ...savedDiagnoses];
+    const updated = [newDiag, ...savedDiagnoses].slice(0, 10);
     setSavedDiagnoses(updated);
     await SecureStore.setItemAsync("savedDiagnoses", JSON.stringify(updated));
   };
@@ -416,7 +421,7 @@ export default function App() {
   if (!car || showAddCar) {
     return <CarProfileScreen 
       onSave={async (carData) => {
-        const newCar = { ...carData, id: Date.now().toString() };
+        const newCar = { ...carData, id: Date.now().toString() + Math.random().toString(36).substring(2, 7) };
         const updatedCars = [...cars, newCar];
         setCars(updatedCars);
         setCar(newCar);
@@ -786,7 +791,7 @@ export default function App() {
                   <Text style={styles.menuNoRecalls}>✅ No active recalls found</Text>
                 ) : (
                   recalls.map((recall, i) => (
-                    <View key={`recall-${i}`} style={styles.menuRecallCard}>
+                    <View key={`recall-${i}-${recall.NHTSACampaignNumber || recall.Component}-${i}`} style={styles.menuRecallCard}>
                       <Text style={styles.menuRecallComponent}>{recall.Component}</Text>
                       <Text style={styles.menuRecallSummary} numberOfLines={2}>{recall.Summary}</Text>
                     </View>
@@ -908,8 +913,6 @@ const styles = StyleSheet.create({
   vehicleModalTitle: { color: "#e8e6e0", fontSize: 18, fontWeight: "bold", marginBottom: 16, textAlign: "center" },
   vehicleOption: { backgroundColor: "#1e1e21", borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: "#2e2e33" },
   vehicleOptionText: { color: "#e8e6e0", fontSize: 15, textAlign: "center" },
-  vehicleCancel: { padding: 12, alignItems: "center" },
-  vehicleCancelText: { color: "#888", fontSize: 14 },
   diffVehicleForm: { marginBottom: 12 },
   diffInput: { backgroundColor: "#0d0d0e", color: "#e8e6e0", borderRadius: 8, padding: 10, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 8 },
   menuOverlay: { flex: 1, flexDirection: "row" },
