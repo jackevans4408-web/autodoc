@@ -149,6 +149,7 @@ export default function App() {
   const [showCarsDropdown, setShowCarsDropdown] = useState(false);
   const [showOBDModal, setShowOBDModal] = useState(false);
   const [expandedRecall, setExpandedRecall] = useState(null);
+  const [dismissedRecalls, setDismissedRecalls] = useState([]);
   const [obdCode, setObdCode] = useState("");
 
   useEffect(() => {
@@ -167,6 +168,8 @@ export default function App() {
       const savedCar = await SecureStore.getItemAsync("userCar");
       const savedCars = await SecureStore.getItemAsync("userCars");
       const savedDiags = await SecureStore.getItemAsync("savedDiagnoses");
+      const savedDismissed = await SecureStore.getItemAsync("dismissedRecalls");
+      if (savedDismissed) setDismissedRecalls(JSON.parse(savedDismissed));
       if (savedSession) {
         setSession(JSON.parse(savedSession));
         if (savedCar) {
@@ -205,6 +208,17 @@ export default function App() {
       setRecalls([]);
     }
     setLoadingRecalls(false);
+  };
+
+  const dismissRecall = async (recallId) => {
+    const updated = [...dismissedRecalls, recallId];
+    setDismissedRecalls(updated);
+    await SecureStore.setItemAsync("dismissedRecalls", JSON.stringify(updated));
+  };
+
+  const clearDismissedRecalls = async () => {
+    setDismissedRecalls([]);
+    await SecureStore.deleteItemAsync("dismissedRecalls");
   };
 
   const openMenuPanel = () => {
@@ -788,10 +802,10 @@ export default function App() {
                   <ActivityIndicator size="small" color="#f5a623" style={{ marginVertical: 12 }} />
                 ) : recalls === null ? (
                   <Text style={styles.menuRecallLoading}>Loading recalls...</Text>
-                ) : recalls.length === 0 ? (
+                ) : recalls.filter(r => !dismissedRecalls.includes(r.NHTSACampaignNumber)).length === 0 ? (
                   <Text style={styles.menuNoRecalls}>✅ No active recalls found</Text>
                 ) : (
-                  recalls.map((recall, i) => {
+                  recalls.filter(r => !dismissedRecalls.includes(r.NHTSACampaignNumber)).map((recall, i) => {
                     const recallKey = `recall-${i}-${recall.NHTSACampaignNumber || recall.Component}-${i}`;
                     const isExpanded = expandedRecall === recallKey;
                     return (
@@ -816,13 +830,18 @@ export default function App() {
                         {isExpanded && recall.ReportReceivedDate && (
                           <Text style={styles.menuRecallDate}>📅 Reported: {recall.ReportReceivedDate}</Text>
                         )}
+                        {isExpanded && (
+                          <TouchableOpacity style={styles.menuRecallDoneBtn} onPress={() => dismissRecall(recall.NHTSACampaignNumber)}>
+                            <Text style={styles.menuRecallDoneText}>✓ Mark as Fixed</Text>
+                          </TouchableOpacity>
+                        )}
                       </TouchableOpacity>
                     );
                   })
                 )}
 
                 <View style={styles.menuDivider} />
-                
+
                 {/* Diagnosis History */}
                 <Text style={styles.menuSectionLabel}>Diagnosis History</Text>
                 {savedDiagnoses.length === 0 ? (
@@ -962,6 +981,8 @@ const styles = StyleSheet.create({
     menuRecallExtra: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#2e2e33" },
     menuRecallLabel: { color: "#e8e6e0", fontSize: 12, fontWeight: "600", marginBottom: 2 },
     menuRecallDate: { color: "#666", fontSize: 11, marginTop: 6 },
+    menuRecallDoneBtn: { marginTop: 10, backgroundColor: "#4caf7d22", borderRadius: 8, padding: 8, alignItems: "center", borderWidth: 1, borderColor: "#4caf7d44" },
+    menuRecallDoneText: { color: "#4caf7d", fontSize: 12, fontWeight: "600" },
   menuNoDiagnoses: { color: "#888", fontSize: 13, paddingHorizontal: 16, paddingBottom: 8 },
   menuDiagItem: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, backgroundColor: "#1e1e21", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 8 },
   menuDiagContent: { flex: 1 },
