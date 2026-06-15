@@ -148,6 +148,7 @@ export default function App() {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [showCarsDropdown, setShowCarsDropdown] = useState(false);
   const [showOBDModal, setShowOBDModal] = useState(false);
+  const [expandedRecall, setExpandedRecall] = useState(null);
   const [obdCode, setObdCode] = useState("");
 
   useEffect(() => {
@@ -790,16 +791,38 @@ export default function App() {
                 ) : recalls.length === 0 ? (
                   <Text style={styles.menuNoRecalls}>✅ No active recalls found</Text>
                 ) : (
-                  recalls.map((recall, i) => (
-                    <View key={`recall-${i}-${recall.NHTSACampaignNumber || recall.Component}-${i}`} style={styles.menuRecallCard}>
-                      <Text style={styles.menuRecallComponent}>{recall.Component}</Text>
-                      <Text style={styles.menuRecallSummary} numberOfLines={2}>{recall.Summary}</Text>
-                    </View>
-                  ))
+                  recalls.map((recall, i) => {
+                    const recallKey = `recall-${i}-${recall.NHTSACampaignNumber || recall.Component}-${i}`;
+                    const isExpanded = expandedRecall === recallKey;
+                    return (
+                      <TouchableOpacity key={recallKey} style={styles.menuRecallCard} onPress={() => setExpandedRecall(isExpanded ? null : recallKey)}>
+                        <View style={styles.menuRecallHeader}>
+                          <Text style={styles.menuRecallComponent}>{recall.Component}</Text>
+                          <Text style={styles.menuRecallExpand}>{isExpanded ? "▲" : "▼"}</Text>
+                        </View>
+                        <Text style={styles.menuRecallSummary} numberOfLines={isExpanded ? undefined : 2}>{recall.Summary}</Text>
+                        {isExpanded && recall.Consequence && (
+                          <View style={styles.menuRecallExtra}>
+                            <Text style={styles.menuRecallLabel}>⚠️ Consequence:</Text>
+                            <Text style={styles.menuRecallSummary}>{recall.Consequence}</Text>
+                          </View>
+                        )}
+                        {isExpanded && recall.Remedy && (
+                          <View style={styles.menuRecallExtra}>
+                            <Text style={styles.menuRecallLabel}>🔧 Remedy:</Text>
+                            <Text style={styles.menuRecallSummary}>{recall.Remedy}</Text>
+                          </View>
+                        )}
+                        {isExpanded && recall.ReportReceivedDate && (
+                          <Text style={styles.menuRecallDate}>📅 Reported: {recall.ReportReceivedDate}</Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
                 )}
 
                 <View style={styles.menuDivider} />
-
+                
                 {/* Diagnosis History */}
                 <Text style={styles.menuSectionLabel}>Diagnosis History</Text>
                 {savedDiagnoses.length === 0 ? (
@@ -934,6 +957,11 @@ const styles = StyleSheet.create({
   menuRecallCard: { marginHorizontal: 16, backgroundColor: "#1e1e21", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#e05a5a44", marginBottom: 8 },
   menuRecallComponent: { color: "#e05a5a", fontWeight: "600", fontSize: 13, marginBottom: 4 },
   menuRecallSummary: { color: "#888", fontSize: 12, lineHeight: 18 },
+    menuRecallHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+    menuRecallExpand: { color: "#f5a623", fontSize: 12 },
+    menuRecallExtra: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#2e2e33" },
+    menuRecallLabel: { color: "#e8e6e0", fontSize: 12, fontWeight: "600", marginBottom: 2 },
+    menuRecallDate: { color: "#666", fontSize: 11, marginTop: 6 },
   menuNoDiagnoses: { color: "#888", fontSize: 13, paddingHorizontal: 16, paddingBottom: 8 },
   menuDiagItem: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, backgroundColor: "#1e1e21", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 8 },
   menuDiagContent: { flex: 1 },
