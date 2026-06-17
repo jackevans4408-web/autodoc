@@ -21,3 +21,7 @@ app.include_router(auth_router)
 @app.get("/")
 def root():
     return {"message": "Engine Eye API is running!"}
+
+@app.head("/")
+def root_head():
+    return {}

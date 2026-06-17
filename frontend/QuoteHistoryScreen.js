@@ -56,7 +56,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
   const [repairCosts, setRepairCosts] = useState({});
   const [selectedCarForRepair, setSelectedCarForRepair] = useState(null);
   const [extraRepairs, setExtraRepairs] = useState([{ name: "", cost: "" }]);
-  const [showRepairLogger, setShowRepairLogger] = useState(false);
+  const [showingRepairLogger, setShowingRepairLogger] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -101,13 +101,10 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
     return [...new Set(items)].filter(i => i.length > 2);
   };
 
-  const openRepairLogger = (analysisText) => {
+  const openRepairLoggerFromSaved = (analysisText) => {
     if (!analysisText) return;
     const items = parseLineItems(analysisText);
-    if (items.length === 0) {
-      alert("Could not parse line items from this quote. Try logging repairs manually.");
-      return;
-    }
+    if (items.length === 0) { alert("Could not parse line items. Try logging repairs manually."); return; }
     setQuoteLineItems(items);
     const initialSelected = {};
     const initialCosts = {};
@@ -115,7 +112,9 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
     setSelectedRepairs(initialSelected);
     setRepairCosts(initialCosts);
     setExtraRepairs([{ name: "", cost: "" }]);
-    setShowRepairLogger(true);
+    setAnalysis(analysisText);
+    setShowingRepairLogger(true);
+    setShowAddQuote(true);
   };
 
   const saveRepairsFromQuote = async () => {
@@ -148,11 +147,14 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
     const updated = [...newRepairs, ...repairs];
     setRepairs(updated);
     await SecureStore.setItemAsync("repairHistory", JSON.stringify(updated));
-    setShowRepairLogger(false);
+    setShowingRepairLogger(false);
+    setShowAddQuote(false);
     setQuoteLineItems([]);
     setSelectedRepairs({});
     setRepairCosts({});
     setExtraRepairs([{ name: "", cost: "" }]);
+    setAnalysis(null);
+    setSelectedImage(null);
   };
 
   const saveCarMileage = async (carId, mileage) => {
@@ -301,7 +303,79 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
     await SecureStore.setItemAsync("savedQuotes", JSON.stringify(updated));
   };
 
-  return (
+  const RepairLoggerContent = () => (
+    <View>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>Which repairs did you get done?</Text>
+        <TouchableOpacity onPress={() => setShowingRepairLogger(false)}>
+          <Text style={styles.modalClose}>← Back</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.extraRepairsLabel}>Select Vehicle</Text>
+      {(cars.length > 0 ? cars : car ? [car] : []).map((c, i) => (
+        <TouchableOpacity
+          key={i}
+          style={[styles.maintOption, { marginBottom: 6 }, selectedCarForRepair?.id === c?.id && { borderColor: "#f5a623", backgroundColor: "#f5a62311" }]}
+          onPress={() => setSelectedCarForRepair(c)}
+        >
+          <Text style={styles.maintOptionLabel}>🚗 {c?.year} {c?.make} {c?.model}</Text>
+          {selectedCarForRepair?.id === c?.id && <Text style={{ color: "#f5a623" }}>✓</Text>}
+        </TouchableOpacity>
+      ))}
+      {quoteLineItems.length === 0 ? (
+        <Text style={styles.noItemsText}>No line items found. Add repairs manually below.</Text>
+      ) : (
+        quoteLineItems.map((item, i) => (
+          <View key={i} style={styles.repairSelectRow}>
+            <TouchableOpacity style={[styles.repairCheckbox, selectedRepairs[i] && styles.repairCheckboxChecked]} onPress={() => setSelectedRepairs(prev => ({ ...prev, [i]: !prev[i] }))}>
+              {selectedRepairs[i] && <Text style={styles.checkmark}>✓</Text>}
+            </TouchableOpacity>
+            <Text style={styles.repairSelectName} numberOfLines={1}>{item}</Text>
+            <TextInput
+              style={styles.repairCostInput}
+              placeholder="cost + tax"
+              placeholderTextColor="#555"
+              value={repairCosts[i] || ""}
+              onChangeText={(val) => { setRepairCosts(prev => ({ ...prev, [i]: val })); if (val) setSelectedRepairs(prev => ({ ...prev, [i]: true })); }}
+              keyboardType="numeric"
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
+            />
+          </View>
+        ))
+      )}
+      <Text style={styles.extraRepairsLabel}>+ Additional Repairs</Text>
+      {extraRepairs.map((r, i) => (
+        <View key={i} style={styles.repairSelectRow}>
+          <TextInput
+            style={styles.extraRepairName}
+            placeholder="Repair name"
+            placeholderTextColor="#555"
+            value={r.name}
+            onChangeText={(val) => { const updated = [...extraRepairs]; updated[i] = { ...updated[i], name: val }; setExtraRepairs(updated); }}
+          />
+          <TextInput
+            style={styles.repairCostInput}
+            placeholder="cost + tax"
+            placeholderTextColor="#555"
+            value={r.cost}
+            onChangeText={(val) => { const updated = [...extraRepairs]; updated[i] = { ...updated[i], cost: val }; setExtraRepairs(updated); }}
+            keyboardType="numeric"
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
+          />
+        </View>
+      ))}
+      <TouchableOpacity onPress={() => setExtraRepairs([...extraRepairs, { name: "", cost: "" }])}>
+        <Text style={styles.addAnotherBtn}>+ Add Another</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.saveBtn} onPress={saveRepairsFromQuote}>
+        <Text style={styles.saveBtnText}>Add to Repair History →</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
@@ -315,7 +389,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
               setRepairName(""); setRepairDate(""); setRepairCost(""); setRepairMileage(""); setRepairNotes("");
               setShowAddRepair(true);
             } else {
-              setSelectedImage(null); setAnalysis(null);
+              setSelectedImage(null); setAnalysis(null); setShowingRepairLogger(false);
               setShowAddQuote(true);
             }
           }}
@@ -336,7 +410,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
       <ScrollView style={styles.content}>
         {activeTab === "quotes" && (
           <View>
-            <TouchableOpacity style={styles.newQuoteBtn} onPress={() => { setSelectedImage(null); setAnalysis(null); setShowAddQuote(true); }}>
+            <TouchableOpacity style={styles.newQuoteBtn} onPress={() => { setSelectedImage(null); setAnalysis(null); setShowingRepairLogger(false); setShowAddQuote(true); }}>
               <Text style={styles.newQuoteBtnText}>📷 Analyze New Quote</Text>
             </TouchableOpacity>
             {quotes.length === 0 ? (
@@ -361,7 +435,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
                   {expandedQuote === quote.id ? (
                     <View>
                       <Text style={styles.quoteAnalysisFull}>{quote.analysis}</Text>
-                      <TouchableOpacity style={styles.logRepairsBtn} onPress={() => openRepairLogger(quote.analysis)}>
+                      <TouchableOpacity style={styles.logRepairsBtn} onPress={() => openRepairLoggerFromSaved(quote.analysis)}>
                         <Text style={styles.logRepairsBtnText}>🔧 Log Repairs from This Quote</Text>
                       </TouchableOpacity>
                     </View>
@@ -380,7 +454,6 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
               <Text style={styles.summaryLabel}>💰 Total Spent</Text>
               <Text style={styles.summaryAmount}>${totalSpent.toFixed(2)}</Text>
             </View>
-
             <Text style={styles.sectionTitle}>🚗 My Vehicles</Text>
             {displayCars.map((c) => {
               const carId = c.id || c.make + c.model + c.year;
@@ -403,14 +476,12 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
                 </View>
               );
             })}
-
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>🔧 Maintenance Schedule</Text>
               <TouchableOpacity onPress={() => setShowAddMaintenance(true)}>
                 <Text style={styles.sectionAdd}>+ Add</Text>
               </TouchableOpacity>
             </View>
-
             {activeMaintenanceItems.length === 0 ? (
               <TouchableOpacity style={styles.emptyMaint} onPress={() => setShowAddMaintenance(true)}>
                 <Text style={styles.emptyMaintText}>+ Add maintenance items to track</Text>
@@ -444,7 +515,6 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
                 </View>
               ))
             )}
-
             <Text style={styles.sectionTitle}>📋 Repair Log</Text>
             {repairs.length === 0 ? (
               <View style={styles.emptyState}>
@@ -529,143 +599,85 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Add Quote Modal */}
+      {/* Add Quote Modal — also handles inline repair logger */}
       <Modal visible={showAddQuote} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Analyze Quote</Text>
-              <TouchableOpacity onPress={() => { setShowAddQuote(false); setSelectedImage(null); setAnalysis(null); }}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
+            {!showingRepairLogger && (
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Analyze Quote</Text>
+                <TouchableOpacity onPress={() => { setShowAddQuote(false); setSelectedImage(null); setAnalysis(null); setShowingRepairLogger(false); }}>
+                  <Text style={styles.modalClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <ScrollView keyboardShouldPersistTaps="handled">
-              {!selectedImage ? (
-                <View style={styles.uploadArea}>
-                  <Text style={styles.uploadText}>Upload your mechanic quote</Text>
-                  <View style={styles.uploadButtons}>
-                    <TouchableOpacity style={styles.uploadBtn} onPress={takePhoto}>
-                      <Text style={styles.uploadBtnText}>📷 Camera</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
-                      <Text style={styles.uploadBtnText}>🖼 Gallery</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.uploadBtn} onPress={pickDocument}>
-                      <Text style={styles.uploadBtnText}>📄 Document</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
+              {!showingRepairLogger && (
                 <View>
-                  <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
-                  <TouchableOpacity style={styles.changeBtn} onPress={() => { setSelectedImage(null); setAnalysis(null); }}>
-                    <Text style={styles.changeBtnText}>Change Photo</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-              {selectedImage && !analysis && (
-                <TouchableOpacity style={styles.analyzeBtn} onPress={analyzeQuote} disabled={analyzing}>
-                  {analyzing ? <ActivityIndicator color="#0d0d0e" /> : <Text style={styles.analyzeBtnText}>🔍 Analyze Quote</Text>}
-                </TouchableOpacity>
-              )}
-              {analysis && (
-                <View style={styles.analysisBox}>
-                  <Text style={styles.analysisTitle}>📋 Analysis</Text>
-                  <Text style={styles.analysisText}>{analysis}</Text>
-                  <TouchableOpacity style={styles.logRepairsBtn} onPress={() => openRepairLogger(analysis)}>
-                    <Text style={styles.logRepairsBtnText}>🔧 Log Repairs from This Quote</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.doneBtn} onPress={() => { 
-                    setShowAddQuote(false); 
-                    setSelectedImage(null); 
-                    setAnalysis(null);
-                    setQuoteLineItems([]);
-                    setSelectedRepairs({});
-                    setRepairCosts({});
-                    setExtraRepairs([{ name: "", cost: "" }]);
-                  }}>
-                    <Text style={styles.doneBtnText}>Done — Saved to History</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Repair Logger Modal - completely separate from Add Quote */}
-      <Modal visible={showRepairLogger} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Which repairs did you get done?</Text>
-              <TouchableOpacity onPress={() => setShowRepairLogger(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.extraRepairsLabel}>Select Vehicle</Text>
-              {(cars.length > 0 ? cars : car ? [car] : []).map((c, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={[styles.maintOption, { marginBottom: 6 }, selectedCarForRepair?.id === c?.id && { borderColor: "#f5a623", backgroundColor: "#f5a62311" }]}
-                  onPress={() => setSelectedCarForRepair(c)}
-                >
-                  <Text style={styles.maintOptionLabel}>🚗 {c?.year} {c?.make} {c?.model}</Text>
-                  {selectedCarForRepair?.id === c?.id && <Text style={{ color: "#f5a623" }}>✓</Text>}
-                </TouchableOpacity>
-              ))}
-            <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 350 }}>
-              {quoteLineItems.length === 0 ? (
-                <Text style={styles.noItemsText}>No line items found. Add repairs manually below.</Text>
-              ) : (
-                quoteLineItems.map((item, i) => (
-                  <View key={i} style={styles.repairSelectRow}>
-                    <TouchableOpacity style={[styles.repairCheckbox, selectedRepairs[i] && styles.repairCheckboxChecked]} onPress={() => setSelectedRepairs(prev => ({ ...prev, [i]: !prev[i] }))}>
-                      {selectedRepairs[i] && <Text style={styles.checkmark}>✓</Text>}
+                  {!selectedImage ? (
+                    <View style={styles.uploadArea}>
+                      <Text style={styles.uploadText}>Upload your mechanic quote</Text>
+                      <View style={styles.uploadButtons}>
+                        <TouchableOpacity style={styles.uploadBtn} onPress={takePhoto}>
+                          <Text style={styles.uploadBtnText}>📷 Camera</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
+                          <Text style={styles.uploadBtnText}>🖼 Gallery</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.uploadBtn} onPress={pickDocument}>
+                          <Text style={styles.uploadBtnText}>📄 Document</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <View>
+                      <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} />
+                      <TouchableOpacity style={styles.changeBtn} onPress={() => { setSelectedImage(null); setAnalysis(null); }}>
+                        <Text style={styles.changeBtnText}>Change Photo</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {selectedImage && !analysis && (
+                    <TouchableOpacity style={styles.analyzeBtn} onPress={analyzeQuote} disabled={analyzing}>
+                      {analyzing ? <ActivityIndicator color="#0d0d0e" /> : <Text style={styles.analyzeBtnText}>🔍 Analyze Quote</Text>}
                     </TouchableOpacity>
-                    <Text style={styles.repairSelectName} numberOfLines={1}>{item}</Text>
-                    <TextInput
-                      style={styles.repairCostInput}
-                      placeholder="cost + tax"
-                      placeholderTextColor="#555"
-                      value={repairCosts[i] || ""}
-                      onChangeText={(val) => { setRepairCosts(prev => ({ ...prev, [i]: val })); if (val) setSelectedRepairs(prev => ({ ...prev, [i]: true })); }}
-                      keyboardType="numeric"
-                      returnKeyType="done"
-                      onSubmitEditing={() => Keyboard.dismiss()}
-                    />
-                  </View>
-                ))
-              )}
-              <Text style={styles.extraRepairsLabel}>+ Additional Repairs</Text>
-              {extraRepairs.map((r, i) => (
-                <View key={i} style={styles.repairSelectRow}>
-                  <TextInput
-                    style={styles.extraRepairName}
-                    placeholder="Repair name"
-                    placeholderTextColor="#555"
-                    value={r.name}
-                    onChangeText={(val) => { const updated = [...extraRepairs]; updated[i] = { ...updated[i], name: val }; setExtraRepairs(updated); }}
-                  />
-                  <TextInput
-                    style={styles.repairCostInput}
-                    placeholder="cost + tax"
-                    placeholderTextColor="#555"
-                    value={r.cost}
-                    onChangeText={(val) => { const updated = [...extraRepairs]; updated[i] = { ...updated[i], cost: val }; setExtraRepairs(updated); }}
-                    keyboardType="numeric"
-                    returnKeyType="done"
-                    onSubmitEditing={() => Keyboard.dismiss()}
-                  />
+                  )}
+                  {analysis && (
+                    <View style={styles.analysisBox}>
+                      <Text style={styles.analysisTitle}>📋 Analysis</Text>
+                      <Text style={styles.analysisText}>{analysis}</Text>
+                      <TouchableOpacity style={styles.logRepairsBtn} onPress={() => {
+                        const items = parseLineItems(analysis);
+                        if (items.length === 0) { alert("Could not parse line items. Add repairs manually."); return; }
+                        setQuoteLineItems(items);
+                        const initialSelected = {};
+                        const initialCosts = {};
+                        items.forEach((item, i) => { initialSelected[i] = false; initialCosts[i] = ""; });
+                        setSelectedRepairs(initialSelected);
+                        setRepairCosts(initialCosts);
+                        setExtraRepairs([{ name: "", cost: "" }]);
+                        setShowingRepairLogger(true);
+                      }}>
+                        <Text style={styles.logRepairsBtnText}>🔧 Log Repairs from This Quote</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.doneBtn} onPress={() => {
+                        setShowAddQuote(false);
+                        setSelectedImage(null);
+                        setAnalysis(null);
+                        setShowingRepairLogger(false);
+                        setQuoteLineItems([]);
+                        setSelectedRepairs({});
+                        setRepairCosts({});
+                        setExtraRepairs([{ name: "", cost: "" }]);
+                      }}>
+                        <Text style={styles.doneBtnText}>Done — Saved to History</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
-              ))}
-              <TouchableOpacity onPress={() => setExtraRepairs([...extraRepairs, { name: "", cost: "" }])}>
-                <Text style={styles.addAnotherBtn}>+ Add Another</Text>
-              </TouchableOpacity>
+              )}
+              {showingRepairLogger && <RepairLoggerContent />}
             </ScrollView>
-            <TouchableOpacity style={styles.saveBtn} onPress={saveRepairsFromQuote}>
-              <Text style={styles.saveBtnText}>Add to Repair History →</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -790,10 +802,6 @@ const styles = StyleSheet.create({
   notesInput: { height: 80, textAlignVertical: "top" },
   saveBtn: { backgroundColor: "#f5a623", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 4, marginBottom: 20 },
   saveBtnText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 16 },
-  carPickerBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#1e1e21", borderRadius: 8, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: "#2e2e33", gap: 8 },
-  carPickerLabel: { color: "#888", fontSize: 13 },
-  carPickerValue: { flex: 1, color: "#e8e6e0", fontSize: 13, fontWeight: "500" },
-  carPickerArrow: { color: "#888", fontSize: 11 },
   repairSelectRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#2e2e33", gap: 10 },
   repairCheckbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: "#2e2e33", alignItems: "center", justifyContent: "center" },
   repairCheckboxChecked: { backgroundColor: "#f5a623", borderColor: "#f5a623" },
