@@ -4,12 +4,14 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Activi
 import { useState, useEffect, useRef } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import * as Notifications from "expo-notifications";
 import LoginScreen from "./LoginScreen";
 import CarProfileScreen from "./CarProfileScreen";
 import QuoteHistoryScreen from "./QuoteHistoryScreen";
 import SettingsScreen from "./SettingsScreen";
 import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
+
 
 
 function FormattedDiagnosis({ text }) {
@@ -151,9 +153,11 @@ export default function App() {
   const [expandedRecall, setExpandedRecall] = useState(null);
   const [dismissedRecalls, setDismissedRecalls] = useState([]);
   const [obdCode, setObdCode] = useState("");
+  
 
   useEffect(() => {
     checkSavedLogin();
+    registerForNotifications();
   }, []);
 
   useEffect(() => {
@@ -161,6 +165,49 @@ export default function App() {
       loadRecalls();
     }
   }, [car]);
+
+  Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+const registerForNotifications = async () => {
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  if (existingStatus !== "granted") {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  return finalStatus === "granted";
+};
+
+const scheduleRepairFollowUp = async (repairName) => {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "🔧 Did you get anything else done?",
+      body: `You logged ${repairName} recently — keep your repair history complete in Engine Eye!`,
+    },
+    trigger: {
+      seconds: 60 * 60 * 24 * 14,
+    },
+  });
+};
+
+const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, carName) => {
+  const dueAt = parseFloat(lastMileage) + parseFloat(interval);
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: `🚗 Maintenance Due — ${carName}`,
+      body: `${itemLabel} is due at ${dueAt.toLocaleString()} miles based on your last service at ${parseFloat(lastMileage).toLocaleString()} miles.`,
+    },
+    trigger: {
+      seconds: 60 * 60 * 24 * 30,
+    },
+  });
+};
 
   const checkSavedLogin = async () => {
     try {
@@ -335,11 +382,14 @@ export default function App() {
     setDifferentVehicle(false);
     setDiffYear(""); setDiffMake(""); setDiffModel("");
 
-    setMessages(prev => [...prev, { role: "user", text: userMessage, image: userImage?.uri }]);
+    setMessages(prev => [...prev, { role: "user", text: userMessage, image: userImage?.uri }]); 
     setDiagnosing(true);
 
     const activeCar = overrideCar || car;
-    const currentHistory = [...conversationHistory];
+    const fullHistory = [...conversationHistory];
+    const currentHistory = fullHistory.length > 6
+      ? [fullHistory[0], ...fullHistory.slice(-5)]
+      : fullHistory;
     const isFollowup = currentHistory.length > 0;
 
     try {

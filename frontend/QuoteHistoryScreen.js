@@ -23,7 +23,7 @@ const ALL_MAINTENANCE_OPTIONS = [
   { key: "wipers", label: "🌧 Wiper Blades", defaultInterval: 12000 },
 ];
 
-export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
+export default function QuoteHistoryScreen({ car, cars = [], onBack, onRepairLogged, onMaintenanceUpdated }) {
   const displayCars = cars.length > 0 ? cars.slice(0, 3) : [car];
 
   const [activeTab, setActiveTab] = useState("quotes");
@@ -149,6 +149,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
     await SecureStore.setItemAsync("repairHistory", JSON.stringify(updated));
     setShowingRepairLogger(false);
     setShowAddQuote(false);
+    if (onRepairLogged && newRepairs.length > 0) onRepairLogged(newRepairs[0].name);
     setQuoteLineItems([]);
     setSelectedRepairs({});
     setRepairCosts({});
@@ -180,6 +181,10 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
     setMaintenance(updated);
     await SecureStore.setItemAsync("maintenanceSchedule", JSON.stringify(updated));
     setShowMaintenanceSetup(false);
+    if (onMaintenanceUpdated) {
+      const car = displayCars.find(c => (c.id || c.make + c.model + c.year) === carId);
+      onMaintenanceUpdated(editingMaintenance?.label, lastMileage, interval || editingMaintenance?.defaultInterval, `${car?.year} ${car?.make} ${car?.model}`);
+    }
     setEditingMaintenance(null);
     setMaintData({});
     setMaintInterval("");
@@ -288,6 +293,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack }) {
     setRepairs(updated);
     await SecureStore.setItemAsync("repairHistory", JSON.stringify(updated));
     setShowAddRepair(false);
+    if (onRepairLogged) onRepairLogged(repairName);
     setRepairName(""); setRepairDate(""); setRepairCost(""); setRepairMileage(""); setRepairNotes("");
   };
 

@@ -1,14 +1,15 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Linking } from "react-native";
 import { useState, useEffect } from "react";
 import PrivacyPolicyScreen from "./PrivacyPolicyScreen";
 import TermsOfServiceScreen from "./TermsOfServiceScreen";
+import HelpFAQScreen from "./HelpFAQScreen";
 
 export default function SettingsScreen({ car, session, onBack, onSignOut, onShowQuoteHistory }) {
   const [recalls, setRecalls] = useState(null);
   const [loadingRecalls, setLoadingRecalls] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
 const [showTerms, setShowTerms] = useState(false);
-
+const [showHelp, setShowHelp] = useState(false);
   useEffect(() => {
     if (car?.year && car?.make && car?.model) {
       loadRecalls();
@@ -30,6 +31,7 @@ const [showTerms, setShowTerms] = useState(false);
 
   if (showPrivacy) return <PrivacyPolicyScreen onBack={() => setShowPrivacy(false)} />;
   if (showTerms) return <TermsOfServiceScreen onBack={() => setShowTerms(false)} />;
+  if (showHelp) return <HelpFAQScreen onBack={() => setShowHelp(false)} />;
 
   return (
     <View style={styles.container}>
@@ -53,7 +55,7 @@ const [showTerms, setShowTerms] = useState(false);
 
         <Text style={styles.sectionLabel}>App</Text>
         <View style={styles.section}>
-          <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
+          <TouchableOpacity style={styles.settingRow} onPress={() => Linking.openURL("app-settings:")}>
             <Text style={styles.settingLabel}>🔔 Notifications</Text>
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
@@ -63,7 +65,7 @@ const [showTerms, setShowTerms] = useState(false);
             <Text style={styles.settingBadge}>Free</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
+          <TouchableOpacity style={styles.settingRow} onPress={() => Linking.openURL("itms-apps://itunes.apple.com/app/id6780311483?action=write-review")}>
             <Text style={styles.settingLabel}>⭐ Rate Engine Eye</Text>
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
@@ -79,7 +81,7 @@ const [showTerms, setShowTerms] = useState(false);
 
         <Text style={styles.sectionLabel}>Support</Text>
         <View style={styles.section}>
-          <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
+          <TouchableOpacity style={styles.settingRow} onPress={() => setShowHelp(true)}>
             <Text style={styles.settingLabel}>❓ Help & FAQ</Text>
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>

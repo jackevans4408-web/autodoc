@@ -2,6 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 import { useState, useEffect } from "react";
 import { signIn, signUp } from "./supabase";
 import * as SecureStore from "expo-secure-store";
+import * as LocalAuthentication from "expo-local-authentication";
 
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -9,10 +10,24 @@ export default function LoginScreen({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState("");
+  const [faceIDAvailable, setFaceIDAvailable] = useState(false);
+
+  useEffect(() => {
+    checkFaceID();
+  }, []);
+
+  const checkFaceID = async () => {
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      const savedSession = await SecureStore.getItemAsync("userSession");
+      setFaceIDAvailable(hasHardware && isEnrolled && !!savedSession);
+    } catch (e) {
+      setFaceIDAvailable(false);
+    }
+  };
 
   const handleAuth = async () => {
-    console.log("signUp type:", typeof signUp);
-    console.log("signIn type:", typeof signIn);
     setLoading(true);
     setError("");
     try {
@@ -27,9 +42,26 @@ export default function LoginScreen({ onLogin }) {
     }
     setLoading(false);
   };
-useEffect(() => {
-    SecureStore.getItemAsync("userSession").then(val => console.log("Saved session value:", val));
-  }, []);
+
+  const handleFaceID = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Sign in to Engine Eye",
+        fallbackLabel: "Use Password",
+      });
+      if (result.success) {
+        const savedSession = await SecureStore.getItemAsync("userSession");
+        if (savedSession) {
+          onLogin(JSON.parse(savedSession));
+        } else {
+          alert("No saved session found. Please sign in with your email first.");
+        }
+      }
+    } catch (e) {
+      alert("Face ID error: " + e.message);
+    }
+  };
+
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
@@ -63,9 +95,14 @@ useEffect(() => {
           <TouchableOpacity style={styles.btn} onPress={handleAuth} disabled={loading}>
             {loading ? <ActivityIndicator color="#0d0d0e" /> : <Text style={styles.btnText}>{isSignUp ? "Sign Up" : "Sign In"}</Text>}
           </TouchableOpacity>
-          
+
+          {!isSignUp && faceIDAvailable && (
+            <TouchableOpacity style={styles.faceIdBtn} onPress={handleFaceID}>
+              <Text style={styles.faceIdText}>🔒 Sign in with Face ID</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity onPress={async () => {
-            const SecureStore = await import("expo-secure-store");
             await SecureStore.deleteItemAsync("userSession");
             await SecureStore.deleteItemAsync("userCar");
             await SecureStore.deleteItemAsync("userCars");
@@ -97,5 +134,7 @@ const styles = StyleSheet.create({
   input: { backgroundColor: "#1e1e21", color: "#e8e6e0", borderRadius: 8, padding: 12, fontSize: 14, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 12 },
   btn: { backgroundColor: "#f5a623", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 4 },
   btnText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 16 },
+  faceIdBtn: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 12, borderWidth: 1, borderColor: "#2e2e33" },
+  faceIdText: { color: "#f5a623", fontSize: 14, fontWeight: "600" },
   switchText: { color: "#888", textAlign: "center", marginTop: 16, fontSize: 13 },
 });

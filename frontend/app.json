@@ -16,7 +16,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.engineeye.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Use Face ID to sign in to Engine Eye quickly and securely."
       }
     },
     "android": {
@@ -31,7 +32,16 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#f5a623",
+          "sounds": []
+        }
+      ],
+      "expo-local-authentication"
     ],
     "extra": {
       "eas": {
