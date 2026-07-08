@@ -499,7 +499,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
   }
 
   if (showQuoteHistory) {
-    return <QuoteHistoryScreen car={car} cars={cars} onBack={() => setShowQuoteHistory(false)} />;
+    return <QuoteHistoryScreen car={car} cars={cars} onBack={() => setShowQuoteHistory(false)} onRepairLogged={scheduleRepairFollowUp} onMaintenanceUpdated={scheduleMaintenanceReminder} />;
   }
 
   if (showSettings) {
