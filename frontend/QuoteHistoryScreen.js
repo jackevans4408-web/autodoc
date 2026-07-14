@@ -259,12 +259,21 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack, onRepairLog
         car_make: car?.make,
         car_model: car?.model,
       };
-      const response = await fetch("https://autodoc-production-1703.up.railway.app/diagnose", {
-        method: "POST",
-        headers: { "Accept": "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await response.json();
+      let data;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await fetch("https://autodoc-production-1703.up.railway.app/diagnose", {
+            method: "POST",
+            headers: { "Accept": "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          data = await response.json();
+          if (data.diagnosis) break;
+        } catch (e) {
+          if (attempt === 2) throw e;
+          await new Promise(res => setTimeout(res, 2000));
+        }
+      }
       setAnalysis(data.diagnosis);
       const newQuote = {
         id: Date.now().toString(),
