@@ -11,6 +11,7 @@ import QuoteHistoryScreen from "./QuoteHistoryScreen";
 import SettingsScreen from "./SettingsScreen";
 import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
+import { saveDiagnosis, loadDiagnoses, deleteDiagnosis } from "./supabase";
 
 
 
@@ -214,11 +215,14 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
       const savedSession = await SecureStore.getItemAsync("userSession");
       const savedCar = await SecureStore.getItemAsync("userCar");
       const savedCars = await SecureStore.getItemAsync("userCars");
-      const savedDiags = await SecureStore.getItemAsync("savedDiagnoses");
       const savedDismissed = await SecureStore.getItemAsync("dismissedRecalls");
       if (savedDismissed) setDismissedRecalls(JSON.parse(savedDismissed));
       if (savedSession) {
-        setSession(JSON.parse(savedSession));
+        const parsedSession = JSON.parse(savedSession);
+        setSession(parsedSession);
+        const userId = parsedSession?.user_id || parsedSession?.id || parsedSession?.email;
+        const diags = await loadDiagnoses(userId);
+        if (diags && diags.length > 0) setSavedDiagnoses(diags);
         if (savedCar) {
           const parsedCar = JSON.parse(savedCar);
           if (!parsedCar.id) parsedCar.id = Date.now().toString();
@@ -232,7 +236,6 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
           }
         }
       }
-      if (savedDiags) setSavedDiagnoses(JSON.parse(savedDiags));
     } catch (e) {
       console.log("Auth error:", e);
     }
@@ -331,18 +334,23 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
   };
 
   const saveDiagnosisToHistory = async (problem, diagnosisText) => {
+    console.log("Saving diagnosis for user:", session?.user_id || session?.email);
     const newDiag = {
       id: Date.now().toString(),
-      problem: problem.substring(0, 100),
-      diagnosis: diagnosisText.substring(0, 500),
+      problem,
+      diagnosis: diagnosisText,
       date: new Date().toLocaleDateString(),
       car: `${car?.year} ${car?.make} ${car?.model}`,
     };
-    const updated = [newDiag, ...savedDiagnoses].slice(0, 10);
-    setSavedDiagnoses(updated);
-    await SecureStore.setItemAsync("savedDiagnoses", JSON.stringify(updated));
+    setSavedDiagnoses(prev => [newDiag, ...prev].slice(0, 20));
+    await saveDiagnosis(
+      session?.user_id || session?.email,
+      problem,
+      diagnosisText,
+      `${car?.year} ${car?.make} ${car?.model}`,
+      new Date().toLocaleDateString()
+    );
   };
-
   const loadDiagnosis = (diag) => {
     setMessages([
       { role: "user", text: diag.problem },
@@ -358,7 +366,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
   const deleteSavedDiagnosis = async (id) => {
     const updated = savedDiagnoses.filter(d => d.id !== id);
     setSavedDiagnoses(updated);
-    await SecureStore.setItemAsync("savedDiagnoses", JSON.stringify(updated));
+    await deleteDiagnosis(id);
   };
 
   const cancelDiagnosis = () => {
@@ -390,7 +398,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
     const currentHistory = fullHistory.length > 6
       ? [fullHistory[0], ...fullHistory.slice(-5)]
       : fullHistory;
-    const isFollowup = currentHistory.length > 0;
+    const isFirstMessage = conversationHistory.length === 0;
 
     try {
       const body = {
@@ -400,7 +408,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
         car_model: activeCar?.model,
         car_engine: activeCar?.engine,
         conversation_history: currentHistory.length > 0 ? currentHistory : null,
-        is_followup: isFollowup,
+        is_followup: !isFirstMessage,
       };
       if (userImage?.base64) {
         body.image_base64 = userImage.base64;
@@ -413,7 +421,9 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
         body: JSON.stringify(body),
         signal: abortControllerRef.current.signal,
       });
-      const data = await response.json();
+      const text = await response.text();
+      console.log("Raw server response:", text);
+      const data = JSON.parse(text);
 
       const updatedHistory = [
         ...currentHistory,
@@ -428,10 +438,10 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
         videos: data.videos
       }]);
 
-      if (!isFollowup) {
+      console.log("isFirstMessage:", isFirstMessage);
+      if (isFirstMessage) {
         saveDiagnosisToHistory(userMessage, data.diagnosis);
       }
-
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
       setDiagnosing(false);
       
@@ -571,7 +581,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
         {diagnosing && (
           <View style={styles.typingIndicator}>
             <ActivityIndicator size="small" color="#f5a623" />
-            <Text style={styles.typingText}>Engine Eye is diagnosing...</Text>
+            <Text style={styles.typingText}>Engine Eye is diagnosing... This may take up to 30 seconds.</Text>
           </View>
         )}
       </ScrollView>
