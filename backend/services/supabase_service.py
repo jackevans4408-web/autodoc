@@ -13,7 +13,7 @@ supabase = create_client(
 def save_diagnosis(problem_text: str, diagnosis: str, user_id: str = "anonymous"):
     data = {
         "user_id": user_id,
-        "problem_text": problem_text,
+        "problem": problem_text,
         "diagnosis": diagnosis
     }
     result = supabase.table("diagnoses").insert(data).execute()
