@@ -18,6 +18,7 @@ import { initPurchases, signOutPurchases } from "./purchases";
 import { formatUsageLine, quotaMessage } from "./plans";
 import PaywallScreen from "./PaywallScreen";
 import ConsentScreen from "./ConsentScreen";
+import { prepareImage } from "./prepareImage";
 import { SUBSCRIPTIONS_ENABLED, APP_STORE_ID, LOCAL_DATA_KEYS } from "./config";
 import { makeConsent, parseConsent, hasValidConsent } from "./consent";
 
@@ -402,41 +403,47 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
     }).start(() => setShowMenuPanel(false));
   };
 
+  // Photos are shrunk and re-encoded before use (see prepareImage.js). Every step is guarded so a bad file shows a message
+  // instead of an unhandled error.
+  const attachPhoto = async (uri) => {
+    try {
+      setSelectedImage(await prepareImage(uri));
+    } catch (e) {
+      console.log("Could not prepare photo:", e?.message || e);
+      alert("We couldn't use that photo. Please try a different one.");
+    }
+  };
+
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) { alert("Permission required!"); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-      base64: true,
-    });
-    if (!result.canceled) setSelectedImage(result.assets[0]);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1 });
+      if (result.canceled || !result.assets?.[0]) return;
+      await attachPhoto(result.assets[0].uri);
+    } catch (e) {
+      alert("We couldn't open your photo library. Check that Engine Eye is allowed to access Photos in Settings.");
+    }
   };
 
   const takePhoto = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) { alert("Permission required!"); return; }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.7,
-      base64: true,
-    });
-    if (!result.canceled) setSelectedImage(result.assets[0]);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) { alert("Camera access is needed to take a photo. You can allow it in Settings."); return; }
+      const result = await ImagePicker.launchCameraAsync({ quality: 1 });
+      if (result.canceled || !result.assets?.[0]) return;
+      await attachPhoto(result.assets[0].uri);
+    } catch (e) {
+      alert("We couldn't open the camera.");
+    }
   };
 
+  // Images only: PDFs cannot be analysed, so they are not offered.
   const pickDocument = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["image/*", "application/pdf"],
-        copyToCacheDirectory: true,
-      });
-      if (!result.canceled && result.assets?.[0]) {
-        const asset = result.assets[0];
-        setSelectedImage({ uri: asset.uri, base64: null, name: asset.name, isDocument: true });
-      }
+      const result = await DocumentPicker.getDocumentAsync({ type: ["image/*"], copyToCacheDirectory: true });
+      if (result.canceled || !result.assets?.[0]) return;
+      await attachPhoto(result.assets[0].uri);
     } catch (e) {
-      alert("Error picking document");
+      alert("We couldn't open that file.");
     }
   };
 
