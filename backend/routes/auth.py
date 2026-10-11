@@ -32,7 +32,8 @@ def signin(request: AuthRequest):
             "success": True,
             "user_id": response.user.id,
             "email": response.user.email,
-            "token": response.session.access_token
+            "token": response.session.access_token,
+            "refresh_token": response.session.refresh_token
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -48,6 +49,27 @@ def signup(request: AuthRequest):
             "success": True,
             "user_id": response.user.id,
             "email": response.user.email
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+@router.post("/auth/refresh", dependencies=[Depends(auth_limit)])
+def refresh(request: RefreshRequest):
+    """Swap a refresh token for a new access token (Supabase access tokens expire after about an hour)."""
+    try:
+        # A throwaway client keeps one user's session from leaking into the shared client used for sign-in.
+        client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+        response = client.auth.refresh_session(request.refresh_token)
+        return {
+            "success": True,
+            "user_id": response.user.id,
+            "email": response.user.email,
+            "token": response.session.access_token,
+            "refresh_token": response.session.refresh_token
         }
     except Exception as e:
         return {"success": False, "error": str(e)}

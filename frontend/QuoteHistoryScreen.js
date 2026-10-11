@@ -1,3 +1,5 @@
+import { diagnose as callDiagnose, ApiError } from "./api";
+import { quotaMessage } from "./plans";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Keyboard } from "react-native";
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store";
@@ -23,7 +25,7 @@ const ALL_MAINTENANCE_OPTIONS = [
   { key: "wipers", label: "🌧 Wiper Blades", defaultInterval: 12000 },
 ];
 
-export default function QuoteHistoryScreen({ car, cars = [], onBack, onRepairLogged, onMaintenanceUpdated }) {
+export default function QuoteHistoryScreen({ car, cars = [], session, onSessionUpdate, onUpgrade, onBack, onRepairLogged, onMaintenanceUpdated }) {
   const displayCars = cars.length > 0 ? cars.slice(0, 3) : [car];
 
   const [activeTab, setActiveTab] = useState("quotes");
@@ -255,6 +257,7 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack, onRepairLog
         Be concise. One line per item. No paragraphs.`,
         image_base64: selectedImage.base64,
         image_type: "image/jpeg",
+        kind: "quote",
         car_year: car?.year,
         car_make: car?.make,
         car_model: car?.model,
@@ -262,14 +265,11 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack, onRepairLog
       let data;
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          const response = await fetch("https://autodoc-production-1703.up.railway.app/diagnose", {
-            method: "POST",
-            headers: { "Accept": "application/json", "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          data = await response.json();
+          data = await callDiagnose(body, session, { onSession: onSessionUpdate });
           if (data.diagnosis) break;
         } catch (e) {
+          // Limits and expired logins will not get better by retrying; only retry network and server hiccups.
+          if (e instanceof ApiError && (e.kind === "quota_exceeded" || e.kind === "auth_required" || e.kind === "too_large")) throw e;
           if (attempt === 2) throw e;
           await new Promise(res => setTimeout(res, 2000));
         }
@@ -284,7 +284,17 @@ export default function QuoteHistoryScreen({ car, cars = [], onBack, onRepairLog
       const updated = [newQuote, ...quotes];
       setQuotes(updated);
       await SecureStore.setItemAsync("savedQuotes", JSON.stringify(updated));
-    } catch (e) { alert("Error analyzing quote. Try again."); }
+    } catch (e) {
+      if (e instanceof ApiError && e.kind === "quota_exceeded") {
+        const limitMessage = quotaMessage(e.detail);
+        alert(limitMessage);
+        onUpgrade?.(limitMessage);
+      } else if (e instanceof ApiError && e.kind === "auth_required") {
+        alert("Your session has expired. Please sign out and sign in again.");
+      } else {
+        alert("Error analyzing quote. Try again.");
+      }
+    }
     setAnalyzing(false);
   };
 
