@@ -21,14 +21,10 @@ def mocks(monkeypatch):
         calls["videos"] = kwargs
         return [{"title": "v"}]
 
-    def fake_save(**kwargs):
-        calls["save"] = kwargs
-
     monkeypatch.setattr(route, "diagnose_car", fake_diagnose_car)
     monkeypatch.setattr(route, "get_recalls", fake_get_recalls)
     monkeypatch.setattr(route, "format_recalls_for_claude", lambda r: "RECALL TEXT")
     monkeypatch.setattr(route, "get_repair_videos", fake_videos)
-    monkeypatch.setattr(route, "save_diagnosis", fake_save)
     return calls
 
 
@@ -42,7 +38,6 @@ def test_first_message_runs_full_pipeline(client, mocks):
     assert mocks["recalls"] == ("2015", "Honda", "Civic")
     assert mocks["diagnose_car"]["car_info"] == "2015 Honda Civic 1.8L"
     assert mocks["diagnose_car"]["is_followup"] is False
-    assert mocks["save"] == {"problem_text": "rattling noise", "diagnosis": "DIAGNOSIS TEXT"}
 
 
 def test_followup_skips_recalls_and_videos(client, mocks):
@@ -60,13 +55,12 @@ def test_no_recall_lookup_without_full_vehicle(client, mocks):
     assert mocks["diagnose_car"]["car_info"] == "2015 None None"
 
 
-def test_image_is_decoded_and_image_only_requests_are_saved(client, mocks):
+def test_image_is_decoded(client, mocks):
     raw = b"\xff\xd8fake-jpeg"
     r = client.post("/diagnose", json={"image_base64": base64.b64encode(raw).decode(), "image_type": "image/png"})
     assert r.status_code == 200
     assert mocks["diagnose_car"]["image_data"] == raw
     assert mocks["diagnose_car"]["image_type"] == "image/png"
-    assert mocks["save"]["problem_text"] == "Image uploaded"
 
 
 def test_rejects_oversized_text(client, mocks):
@@ -121,4 +115,9 @@ def test_rate_limited_requests_never_reach_the_ai(client, mocks):
         client.post("/diagnose", json={"text": "hi"})
     mocks.clear()
     assert client.post("/diagnose", json={"text": "hi"}).status_code == 429
-    assert "diagnose_car" not in mocks and "save" not in mocks
+    assert "diagnose_car" not in mocks
+
+
+def test_route_does_not_write_to_the_database():
+    # The app saves each user's history itself, under that user's own login. The backend must not write anonymous copies.
+    assert not hasattr(route, "save_diagnosis")

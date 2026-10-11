@@ -37,3 +37,7 @@ Owner actions still needed (cannot be done from code):
 - Only after the new app version is live: set `ENFORCE_USAGE_LIMITS=true` on Railway.
 
 Ideas not started: GitHub Actions CI (run both test suites on PRs; add after the PRs merge so the tests exist on main), removing committed `__pycache__` files, pinning backend dependency versions, per-user saving of diagnoses in the backend (currently saved under "anonymous").
+
+## 2026-10-11 (security)
+- Anthropic key leaked in git history (commit 0438b94): confirmed the old key is already rejected by the API (401); Railway uses a new key (`engine-eye-prod`) and a live test diagnosis worked.
+- Found the `diagnoses` table readable by the public anon key (51 rows). Fix prepared on branch `fix/diagnoses-rls` (see `docs/RLS_LOCKDOWN.md`): app sends the user token, backend stops writing anonymous rows, and `supabase/migrations/002_diagnoses_rls.sql` enables RLS. The SQL must be run last, after the app change is verified.

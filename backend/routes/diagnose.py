@@ -5,7 +5,6 @@ from backend.rate_limit import rate_limit
 from backend.quota import release_usage, reserve_usage
 from backend.store import get_store_if_enforced
 from backend.services.claude_service import diagnose_car
-from backend.services.supabase_service import save_diagnosis
 from backend.services.nhtsa_service import get_recalls, format_recalls_for_claude
 from backend.services.youtube_service import get_repair_videos
 import base64
@@ -85,11 +84,6 @@ def _run_diagnosis(request: DiagnoseRequest):
             car_make=request.car_make,
             car_model=request.car_model
         )
-
-    save_diagnosis(
-        problem_text=request.text or "Image uploaded",
-        diagnosis=result
-    )
 
     return {
         "diagnosis": result,
