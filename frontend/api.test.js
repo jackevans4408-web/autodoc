@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ApiError, BACKEND_URL, authedRequest, diagnose, fetchUsage, isUsableSession, refreshSession, toApiError, waitForPaidTier } from "./api.js";
+import { ApiError, BACKEND_URL, authedRequest, deleteAccount, diagnose, fetchUsage, isUsableSession, refreshSession, toApiError, waitForPaidTier } from "./api.js";
 
 const reply = (status, body) => ({
   status,
@@ -145,4 +145,17 @@ test("isUsableSession needs both a user id and an access token", () => {
   assert.equal(isUsableSession({ success: true, user_id: "u", email: "a@b.c" }), false); // old sign-up result
   assert.equal(isUsableSession({ token: "t" }), false);
   assert.equal(isUsableSession(null), false);
+});
+
+test("deleteAccount sends an authenticated DELETE", async () => {
+  const { fetchImpl, calls } = scripted(reply(200, { success: true }));
+  assert.deepEqual(await deleteAccount(session, { fetchImpl }), { success: true });
+  assert.equal(calls[0].url, `${BACKEND_URL}/auth/account`);
+  assert.equal(calls[0].init.method, "DELETE");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer tok");
+});
+
+test("deleteAccount failures are raised so the app never claims the account was deleted", async () => {
+  const { fetchImpl } = scripted(reply(500, { detail: { error: "deletion_failed" } }));
+  await assert.rejects(deleteAccount(session, { fetchImpl }), (e) => e.kind === "server");
 });

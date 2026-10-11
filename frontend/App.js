@@ -13,10 +13,13 @@ import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
 import { saveDiagnosis, loadDiagnoses, deleteDiagnosis, updateDiagnosisMessages, fetchDiagnosis } from "./supabase";
 import { buildApiHistory, appendExchange, restoreConversation, adoptSavedId, withUpdatedMessages } from "./historyUtils";
-import { diagnose as callDiagnose, fetchUsage, ApiError, isUsableSession } from "./api";
+import { diagnose as callDiagnose, fetchUsage, ApiError, isUsableSession, deleteAccount as deleteAccountRequest } from "./api";
 import { initPurchases, signOutPurchases } from "./purchases";
 import { formatUsageLine, quotaMessage } from "./plans";
 import PaywallScreen from "./PaywallScreen";
+import ConsentScreen from "./ConsentScreen";
+import { SUBSCRIPTIONS_ENABLED, APP_STORE_ID, LOCAL_DATA_KEYS } from "./config";
+import { makeConsent, parseConsent, hasValidConsent } from "./consent";
 
 
 function FormattedDiagnosis({ text }) {
@@ -160,6 +163,8 @@ export default function App() {
   const [expandedRecall, setExpandedRecall] = useState(null);
   const [dismissedRecalls, setDismissedRecalls] = useState([]);
   const [obdCode, setObdCode] = useState("");
+  const [hasConsent, setHasConsent] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallReason, setPaywallReason] = useState(null);
   const [usage, setUsage] = useState(null);
@@ -230,7 +235,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
   };
 
   const refreshUsage = async () => {
-    if (!session?.token) return;
+    if (!SUBSCRIPTIONS_ENABLED || !session?.token) return;
     try {
       setUsage(await fetchUsage(session, { onSession: updateSession }));
     } catch (e) {
@@ -239,16 +244,81 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
   };
 
   const openPaywall = (reason = null) => {
+    if (!SUBSCRIPTIONS_ENABLED) return;
     setPaywallReason(reason);
     setShowPaywall(true);
   };
 
   useEffect(() => {
-    if (session?.user_id) {
+    if (session?.user_id && SUBSCRIPTIONS_ENABLED) {
       initPurchases(session.user_id);
       refreshUsage();
     }
   }, [session?.user_id]);
+
+  // The AI consent belongs to the signed-in user; load it whenever the user changes.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!session?.user_id) {
+        setHasConsent(false);
+        setConsentChecked(false);
+        return;
+      }
+      let stored = null;
+      try {
+        stored = parseConsent(await SecureStore.getItemAsync("aiConsent"));
+      } catch (e) {
+        // Treat unreadable storage as "not yet agreed".
+      }
+      if (!cancelled) {
+        setHasConsent(hasValidConsent(stored, session.user_id));
+        setConsentChecked(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user_id]);
+
+  const agreeToAI = async () => {
+    await SecureStore.setItemAsync("aiConsent", JSON.stringify(makeConsent(session.user_id)));
+    setHasConsent(true);
+  };
+
+  const declineAI = async () => {
+    alert("Engine Eye needs your permission to send your questions to its AI service, so you can't use diagnoses without it. You can come back any time.");
+    await endSession();
+  };
+
+  const withdrawAIConsent = async () => {
+    await SecureStore.deleteItemAsync("aiConsent");
+    setHasConsent(false);
+    setShowSettings(false);
+  };
+
+  // Permanently deletes the account and server-side data, then wipes everything stored on this device.
+  const deleteMyAccount = async () => {
+    try {
+      await deleteAccountRequest(session, { onSession: updateSession });
+    } catch (e) {
+      alert(e instanceof ApiError && e.kind === "auth_required" ? "Please sign in again, then try deleting your account." : "We couldn't delete your account. Check your connection and try again.");
+      return false;
+    }
+    for (const key of LOCAL_DATA_KEYS) {
+      try { await SecureStore.deleteItemAsync(key); } catch (e) { /* nothing stored under this key */ }
+    }
+    await signOutPurchases();
+    setUsage(null);
+    setSavedDiagnoses([]);
+    setMessages([]);
+    setConversationHistory([]);
+    setCurrentDiagnosisId(null);
+    setCar(null);
+    setCars([]);
+    setShowSettings(false);
+    setSession(null);
+    alert("Your account and data have been deleted.");
+    return true;
+  };
 
   const checkSavedLogin = async () => {
     try {
@@ -564,6 +634,14 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
     }} />;
   }
 
+  if (!consentChecked) {
+    return <View style={{ flex: 1, backgroundColor: "#0d0d0e" }} />;
+  }
+
+  if (!hasConsent) {
+    return <ConsentScreen onAgree={agreeToAI} onDecline={declineAI} />;
+  }
+
   if (!car || showAddCar) {
     return <CarProfileScreen 
       onSave={async (carData) => {
@@ -599,6 +677,10 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
       car={car}
       session={session}
       usage={usage}
+      showPlan={SUBSCRIPTIONS_ENABLED}
+      appStoreId={APP_STORE_ID}
+      onDeleteAccount={deleteMyAccount}
+      onWithdrawConsent={withdrawAIConsent}
       onShowPaywall={() => { setShowSettings(false); openPaywall(); }}
       onBack={() => setShowSettings(false)}
       onSignOut={signOut}
@@ -697,7 +779,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
       </View>
     )}
 
-      {formatUsageLine(usage, conversationHistory.length > 0 ? "followup" : "diagnosis") && (
+      {SUBSCRIPTIONS_ENABLED && formatUsageLine(usage, conversationHistory.length > 0 ? "followup" : "diagnosis") && (
         <TouchableOpacity style={styles.usageBar} onPress={() => openPaywall()}>
           <Text style={styles.usageText}>{formatUsageLine(usage, conversationHistory.length > 0 ? "followup" : "diagnosis")}</Text>
           <Text style={styles.usageUpgrade}>Upgrade</Text>

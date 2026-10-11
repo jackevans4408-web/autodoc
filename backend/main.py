@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from backend.routes.diagnose import router as diagnose_router
 from backend.routes.auth import router as auth_router
 from backend.routes.usage import router as usage_router
+from backend.routes.account import router as account_router
 from backend.routes.webhooks import router as webhooks_router
 
 load_dotenv()
@@ -20,6 +21,7 @@ app.add_middleware(
 app.include_router(diagnose_router)
 app.include_router(auth_router)
 app.include_router(usage_router)
+app.include_router(account_router)
 app.include_router(webhooks_router)
 
 @app.get("/")

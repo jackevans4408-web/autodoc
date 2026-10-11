@@ -11,7 +11,7 @@ export default function PrivacyPolicyScreen({ onBack }) {
         <View style={{ width: 60 }} />
       </View>
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.lastUpdated}>Last Updated: June 13, 2026</Text>
+        <Text style={styles.lastUpdated}>Last Updated: October 11, 2026</Text>
         <Text style={styles.intro}>Engine Eye ("we", "our", "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, share, and protect your information when you use the Engine Eye mobile application. By using Engine Eye, you consent to the practices described in this policy.</Text>
 
         <Text style={styles.section}>1. Information We Collect</Text>
@@ -54,7 +54,7 @@ export default function PrivacyPolicyScreen({ onBack }) {
         <Text style={styles.subheader}>Secure Cloud Storage</Text>
         <Text style={styles.body}>Account credentials (email and encrypted password) are stored securely on Supabase servers with industry-standard encryption. Passwords are hashed and salted — we never store your plain text password.</Text>
         <Text style={styles.subheader}>Diagnostic Processing</Text>
-        <Text style={styles.body}>When you submit a diagnosis, your query and any images are transmitted securely to our backend server and then to Anthropic's Claude AI for processing. Diagnostic conversations are processed in real time and are not permanently stored on our servers after the response is delivered.</Text>
+        <Text style={styles.body}>When you submit a diagnosis, your query and any images are transmitted securely to our backend server and then to Anthropic's Claude AI for processing. Our backend server does not keep your conversations. They are saved to your account history, which is stored with our database provider (Supabase), so you can reopen them. They stay there until you delete them or delete your account.</Text>
 
         <Text style={styles.section}>4. Third-Party Services</Text>
         <Text style={styles.body}>Engine Eye uses the following third-party services, each with their own privacy practices:</Text>
@@ -94,7 +94,8 @@ export default function PrivacyPolicyScreen({ onBack }) {
         <Text style={styles.bullet}>• Right to Portability: Request your data in a portable format</Text>
         <Text style={styles.bullet}>• Right to Opt-Out: Opt out of any non-essential data processing</Text>
         <Text style={styles.bullet}>• Right to Withdraw Consent: Withdraw consent at any time where processing is based on consent</Text>
-        <Text style={styles.body}>To exercise any of these rights, contact us at jack.evans4408@gmail.com. We will respond within 30 days.</Text>
+        <Text style={styles.body}>You can delete your account and all of your saved diagnoses yourself at any time in the app under Settings, Delete Account. You can also withdraw your permission to send information to our AI service under Settings, Withdraw AI permission.</Text>
+        <Text style={styles.body}>For any other request, contact us at jack.evans4408@gmail.com. We will respond within 30 days.</Text>
 
         <Text style={styles.section}>8. California Privacy Rights (CCPA)</Text>
         <Text style={styles.body}>If you are a California resident, you have additional rights under the California Consumer Privacy Act (CCPA), including the right to know what personal information we collect, the right to delete your personal information, and the right to non-discrimination for exercising your privacy rights. Engine Eye does not sell personal information. To submit a CCPA request, contact us at jack.evans4408@gmail.com.</Text>

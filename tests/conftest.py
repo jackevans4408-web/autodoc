@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.routes import auth, diagnose, usage
+from backend.routes import account, auth, diagnose, usage
 
 
 @pytest.fixture(autouse=True)
@@ -20,6 +20,7 @@ def reset_limiters():
         diagnose.diagnose_per_hour.limiter,
         auth.auth_limit.limiter,
         usage.usage_limit.limiter,
+        account.account_limit.limiter,
     ]
     for limiter in limiters:
         limiter.reset()

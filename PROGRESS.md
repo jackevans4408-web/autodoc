@@ -41,3 +41,9 @@ Ideas not started: GitHub Actions CI (run both test suites on PRs; add after the
 ## 2026-10-11 (security)
 - Anthropic key leaked in git history (commit 0438b94): confirmed the old key is already rejected by the API (401); Railway uses a new key (`engine-eye-prod`) and a live test diagnosis worked.
 - Found the `diagnoses` table readable by the public anon key (51 rows). Fix prepared on branch `fix/diagnoses-rls` (see `docs/RLS_LOCKDOWN.md`): app sends the user token, backend stops writing anonymous rows, and `supabase/migrations/002_diagnoses_rls.sql` enables RLS. The SQL must be run last, after the app change is verified.
+
+## 2026-10-11 (App Store)
+- Apple's rejection of the first app (5.6, 2026-07-17) says it is not eligible for resubmission; a new app (`com.jackevans.engineeye`) is the only route, and further violating submissions risk removal from the Developer Program.
+- Audit found: no in-app account deletion, no permission screen before sending data to the AI, an unfinished-looking paywall, a Rate button pointing at the old app, and a privacy policy that misdescribed storage. Fixed on `feature/app-review-readiness`; see `docs/APP_REVIEW_CHECKLIST.md` for what still needs doing before submitting.
+- Subscriptions are hidden (`EXPO_PUBLIC_SUBSCRIPTIONS_ENABLED`) for version 1; the backend subscription pieces are deployed and verified but unused. Plan: ship v1, then add subscriptions in an update.
+- Paid Applications agreement in App Store Connect is not active yet (owner action); not needed for v1 if it has no subscriptions.
