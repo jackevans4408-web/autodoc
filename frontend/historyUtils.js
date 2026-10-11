@@ -43,3 +43,11 @@ export const restoreConversation = (row) => {
       ];
   return { history, display: toDisplayMessages(history) };
 };
+
+// A conversation is added to the history list under a temporary id before the database has assigned its real one.
+// Swap the real id in once it arrives, so reopening and deleting talk to the right database row.
+export const adoptSavedId = (list, tempId, realId) =>
+  list.map((d) => (d.id === tempId ? { ...d, id: realId, supabaseId: realId } : d));
+
+// Keep the local copy of a saved conversation in step with follow-ups, so reopening it never shows a stale version.
+export const withUpdatedMessages = (list, id, messages) => list.map((d) => (d.id === id ? { ...d, messages } : d));

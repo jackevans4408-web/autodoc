@@ -50,3 +50,36 @@ test("restoreConversation falls back to problem/diagnosis for rows with no messa
   ]);
   assert.deepEqual(display, toDisplayMessages(history));
 });
+
+import { adoptSavedId, withUpdatedMessages } from "./historyUtils.js";
+
+test("adoptSavedId swaps the temporary id for the database id and leaves other items alone", () => {
+  const list = [{ id: "1760000000000", problem: "a" }, { id: "other", problem: "b" }];
+  const out = adoptSavedId(list, "1760000000000", "uuid-123");
+  assert.deepEqual(out[0], { id: "uuid-123", supabaseId: "uuid-123", problem: "a" });
+  assert.deepEqual(out[1], list[1]);
+  assert.equal(list[0].id, "1760000000000"); // input not mutated
+});
+
+test("adoptSavedId with an unknown id changes nothing", () => {
+  const list = [{ id: "x" }];
+  assert.deepEqual(adoptSavedId(list, "nope", "uuid"), list);
+});
+
+test("withUpdatedMessages replaces only the matching item's messages", () => {
+  const list = [{ id: "a", messages: [1] }, { id: "b", messages: [2] }];
+  const out = withUpdatedMessages(list, "a", [1, 2, 3]);
+  assert.deepEqual(out[0].messages, [1, 2, 3]);
+  assert.deepEqual(out[1].messages, [2]);
+  assert.deepEqual(list[0].messages, [1]);
+});
+
+test("a follow-up is visible when a just-saved conversation is reopened from the local list", () => {
+  let list = [{ id: "tmp", problem: "noise", diagnosis: "pads", messages: [{ role: "user", content: "noise" }, { role: "assistant", content: "pads" }] }];
+  list = adoptSavedId(list, "tmp", "uuid-1");
+  const full = appendExchange(list[0].messages, "how much?", "$150");
+  list = withUpdatedMessages(list, "uuid-1", full);
+  const { history } = restoreConversation(list[0]);
+  assert.equal(history.length, 4);
+  assert.equal(history[3].content, "$150");
+});

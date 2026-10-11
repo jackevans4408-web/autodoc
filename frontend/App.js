@@ -12,7 +12,7 @@ import SettingsScreen from "./SettingsScreen";
 import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
 import { saveDiagnosis, loadDiagnoses, deleteDiagnosis, updateDiagnosisMessages, fetchDiagnosis } from "./supabase";
-import { buildApiHistory, appendExchange, restoreConversation } from "./historyUtils";
+import { buildApiHistory, appendExchange, restoreConversation, adoptSavedId, withUpdatedMessages } from "./historyUtils";
 import { diagnose as callDiagnose, fetchUsage, ApiError } from "./api";
 import { initPurchases, signOutPurchases } from "./purchases";
 import { formatUsageLine, quotaMessage } from "./plans";
@@ -397,12 +397,12 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
     console.log("Supabase ID returned:", supabaseId);
     if (supabaseId) {
       setCurrentDiagnosisId(supabaseId);
-      setSavedDiagnoses(prev => prev.map(d => d.id === newId ? { ...d, supabaseId } : d));
+      setSavedDiagnoses(prev => adoptSavedId(prev, newId, supabaseId));
     }
     return supabaseId || null;
   };
   const loadDiagnosis = async (diag) => {
-    const fetched = await fetchDiagnosis(session, diag.id, { onSession: updateSession });
+    const fetched = await fetchDiagnosis(session, diag.supabaseId || diag.id, { onSession: updateSession });
     const { history, display } = restoreConversation(fetched || diag);
     setConversationHistory(history);
     setMessages(display);
@@ -413,9 +413,10 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
   };
 
   const deleteSavedDiagnosis = async (id) => {
+    const row = savedDiagnoses.find(d => d.id === id);
     const updated = savedDiagnoses.filter(d => d.id !== id);
     setSavedDiagnoses(updated);
-    await deleteDiagnosis(session, id, { onSession: updateSession });
+    await deleteDiagnosis(session, row?.supabaseId || id, { onSession: updateSession });
   };
 
   const cancelDiagnosis = () => {
@@ -482,7 +483,8 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
         const diagnosisId = currentDiagnosisId || (savePromiseRef.current ? await savePromiseRef.current : null);
         if (diagnosisId) {
           console.log("Updating diagnosis ID:", diagnosisId);
-          await updateDiagnosisMessages(session, diagnosisId, updatedHistory, { onSession: updateSession });
+          const saved = await updateDiagnosisMessages(session, diagnosisId, updatedHistory, { onSession: updateSession });
+          if (saved) setSavedDiagnoses(prev => withUpdatedMessages(prev, diagnosisId, updatedHistory));
         }
       }
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
