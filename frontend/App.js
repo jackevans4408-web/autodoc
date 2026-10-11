@@ -260,8 +260,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
       if (savedSession) {
         const parsedSession = JSON.parse(savedSession);
         setSession(parsedSession);
-        const userId = parsedSession?.user_id || parsedSession?.id || parsedSession?.email;
-        const diags = await loadDiagnoses(userId);
+        const diags = await loadDiagnoses(parsedSession, { onSession: updateSession });
         if (diags && diags.length > 0) setSavedDiagnoses(diags);
         if (savedCar) {
           const parsedCar = JSON.parse(savedCar);
@@ -387,12 +386,13 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
     };
     setSavedDiagnoses(prev => [newDiag, ...prev].slice(0, 20));
     const supabaseId = await saveDiagnosis(
-      session?.user_id || session?.email,
+      session,
       problem,
       diagnosisText,
       `${car?.year} ${car?.make} ${car?.model}`,
       new Date().toLocaleDateString(),
-      history
+      history,
+      { onSession: updateSession }
     );
     console.log("Supabase ID returned:", supabaseId);
     if (supabaseId) {
@@ -402,7 +402,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
     return supabaseId || null;
   };
   const loadDiagnosis = async (diag) => {
-    const fetched = await fetchDiagnosis(diag.id);
+    const fetched = await fetchDiagnosis(session, diag.id, { onSession: updateSession });
     const { history, display } = restoreConversation(fetched || diag);
     setConversationHistory(history);
     setMessages(display);
@@ -415,7 +415,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
   const deleteSavedDiagnosis = async (id) => {
     const updated = savedDiagnoses.filter(d => d.id !== id);
     setSavedDiagnoses(updated);
-    await deleteDiagnosis(id);
+    await deleteDiagnosis(session, id, { onSession: updateSession });
   };
 
   const cancelDiagnosis = () => {
@@ -482,7 +482,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
         const diagnosisId = currentDiagnosisId || (savePromiseRef.current ? await savePromiseRef.current : null);
         if (diagnosisId) {
           console.log("Updating diagnosis ID:", diagnosisId);
-          await updateDiagnosisMessages(diagnosisId, updatedHistory);
+          await updateDiagnosisMessages(session, diagnosisId, updatedHistory, { onSession: updateSession });
         }
       }
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);

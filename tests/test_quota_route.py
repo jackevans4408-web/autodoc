@@ -44,7 +44,6 @@ def ai(monkeypatch):
     monkeypatch.setattr(route, "get_recalls", lambda *a: None)
     monkeypatch.setattr(route, "format_recalls_for_claude", lambda r: "none")
     monkeypatch.setattr(route, "get_repair_videos", lambda **k: [])
-    monkeypatch.setattr(route, "save_diagnosis", lambda **k: None)
     return calls
 
 
