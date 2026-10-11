@@ -1,3 +1,4 @@
+import DoneAccessory, { DONE_ROOT } from "./DoneAccessory";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { useState, useEffect } from "react";
 
@@ -142,6 +143,7 @@ export default function CarProfileScreen({ onSave, onCancel }) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <DoneAccessory id={DONE_ROOT} />
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         {onCancel && (
@@ -199,7 +201,7 @@ export default function CarProfileScreen({ onSave, onCancel }) {
           placeholderTextColor="#888"
           value={year}
           onChangeText={(text) => { setYear(text); setVinDecoded(false); }}
-          keyboardType="numeric"
+          keyboardType="numeric" inputAccessoryViewID={DONE_ROOT}
           maxLength={4}
           returnKeyType="done"
           onSubmitEditing={() => Keyboard.dismiss()}
@@ -259,7 +261,7 @@ export default function CarProfileScreen({ onSave, onCancel }) {
           placeholderTextColor="#888"
           value={mileage}
           onChangeText={setMileage}
-          keyboardType="numeric"
+          keyboardType="numeric" inputAccessoryViewID={DONE_ROOT}
           returnKeyType="done"
           onSubmitEditing={() => Keyboard.dismiss()}
         />
