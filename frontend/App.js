@@ -18,6 +18,7 @@ import { initPurchases, signOutPurchases } from "./purchases";
 import { formatUsageLine, quotaMessage } from "./plans";
 import PaywallScreen from "./PaywallScreen";
 import ConsentScreen from "./ConsentScreen";
+import DoneAccessory, { DONE_ROOT } from "./DoneAccessory";
 import { prepareImage } from "./prepareImage";
 import { SUBSCRIPTIONS_ENABLED, APP_STORE_ID, LOCAL_DATA_KEYS } from "./config";
 import { makeConsent, parseConsent, hasValidConsent } from "./consent";
@@ -697,6 +698,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior="padding">
+      <DoneAccessory id={DONE_ROOT} />
       <View style={styles.header}>
         <TouchableOpacity style={styles.menuBtn} onPress={openMenuPanel}>
           <View style={styles.menuLine} />
@@ -852,7 +854,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
                 </TouchableOpacity>
               ) : (
                 <View style={styles.diffVehicleForm}>
-                  <TextInput style={styles.diffInput} placeholder="Year (e.g. 2020)" placeholderTextColor="#888" value={diffYear} onChangeText={setDiffYear} keyboardType="numeric" maxLength={4} />
+                  <TextInput style={styles.diffInput} placeholder="Year (e.g. 2020)" placeholderTextColor="#888" value={diffYear} onChangeText={setDiffYear} keyboardType="numeric" inputAccessoryViewID={DONE_ROOT} maxLength={4} />
                   <TextInput style={styles.diffInput} placeholder="Make (e.g. Toyota)" placeholderTextColor="#888" value={diffMake} onChangeText={setDiffMake} />
                   <TextInput style={styles.diffInput} placeholder="Model (e.g. Camry)" placeholderTextColor="#888" value={diffModel} onChangeText={setDiffModel} />
                   <TouchableOpacity style={styles.vehicleOption} onPress={() => sendMessage({ year: diffYear, make: diffMake, model: diffModel })}>

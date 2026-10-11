@@ -2,6 +2,7 @@ import { diagnose as callDiagnose, ApiError } from "./api";
 import { quotaMessage } from "./plans";
 import { parseLineItems } from "./quoteParse";
 import { prepareImage } from "./prepareImage";
+import DoneAccessory, { DONE_ROOT, DONE_MODAL } from "./DoneAccessory";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Keyboard } from "react-native";
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store";
@@ -363,7 +364,7 @@ export default function QuoteHistoryScreen({ car, cars = [], session, onSessionU
               placeholderTextColor="#555"
               value={repairCosts[i] || ""}
               onChangeText={(val) => { setRepairCosts(prev => ({ ...prev, [i]: val })); if (val) setSelectedRepairs(prev => ({ ...prev, [i]: true })); }}
-              keyboardType="numeric"
+              keyboardType="numeric" inputAccessoryViewID={DONE_ROOT}
               returnKeyType="done"
               onSubmitEditing={() => Keyboard.dismiss()}
             />
@@ -386,7 +387,7 @@ export default function QuoteHistoryScreen({ car, cars = [], session, onSessionU
             placeholderTextColor="#555"
             value={r.cost}
             onChangeText={(val) => { const updated = [...extraRepairs]; updated[i] = { ...updated[i], cost: val }; setExtraRepairs(updated); }}
-            keyboardType="numeric"
+            keyboardType="numeric" inputAccessoryViewID={DONE_ROOT}
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
           />
@@ -403,6 +404,7 @@ export default function QuoteHistoryScreen({ car, cars = [], session, onSessionU
 
 return (
     <View style={styles.container}>
+      <DoneAccessory id={DONE_ROOT} />
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Text style={styles.backText}>← Back</Text>
@@ -493,7 +495,7 @@ return (
                   </TouchableOpacity>
                   {isExpanded && (
                     <View style={styles.mileageInputRow}>
-                      <TextInput style={styles.mileageInput} placeholder="Enter current mileage" placeholderTextColor="#888" value={mileageInputs[carId] || ""} onChangeText={(val) => setMileageInputs(prev => ({ ...prev, [carId]: val }))} keyboardType="numeric" />
+                      <TextInput style={styles.mileageInput} placeholder="Enter current mileage" placeholderTextColor="#888" value={mileageInputs[carId] || ""} onChangeText={(val) => setMileageInputs(prev => ({ ...prev, [carId]: val }))} keyboardType="numeric" inputAccessoryViewID={DONE_ROOT} />
                       <TouchableOpacity style={styles.mileageSaveBtn} onPress={() => saveCarMileage(carId, mileageInputs[carId])}>
                         <Text style={styles.mileageSaveBtnText}>Save</Text>
                       </TouchableOpacity>
@@ -605,6 +607,7 @@ return (
       <Modal visible={showMaintenanceSetup} animationType="slide" transparent>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <View style={styles.modalContent}>
+            <DoneAccessory id={DONE_MODAL} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingMaintenance?.label}</Text>
               <TouchableOpacity onPress={() => setShowMaintenanceSetup(false)}>
@@ -616,8 +619,8 @@ return (
                 🚗 {displayCars.find(c => (c.id || c.make + c.model + c.year) === editingMaintenance.carId)?.year} {displayCars.find(c => (c.id || c.make + c.model + c.year) === editingMaintenance.carId)?.make} {displayCars.find(c => (c.id || c.make + c.model + c.year) === editingMaintenance.carId)?.model}
               </Text>
             )}
-            <TextInput style={styles.input} placeholder="Last service mileage (e.g. 82000)" placeholderTextColor="#888" value={maintData.lastMileage || ""} onChangeText={(val) => setMaintData(prev => ({ ...prev, lastMileage: val }))} keyboardType="numeric" />
-            <TextInput style={styles.input} placeholder={`Interval in miles (default: ${editingMaintenance?.defaultInterval?.toLocaleString()})`} placeholderTextColor="#888" value={maintData.interval || ""} onChangeText={(val) => setMaintData(prev => ({ ...prev, interval: val }))} keyboardType="numeric" />
+            <TextInput style={styles.input} placeholder="Last service mileage (e.g. 82000)" placeholderTextColor="#888" value={maintData.lastMileage || ""} onChangeText={(val) => setMaintData(prev => ({ ...prev, lastMileage: val }))} keyboardType="numeric" inputAccessoryViewID={DONE_MODAL} />
+            <TextInput style={styles.input} placeholder={`Interval in miles (default: ${editingMaintenance?.defaultInterval?.toLocaleString()})`} placeholderTextColor="#888" value={maintData.interval || ""} onChangeText={(val) => setMaintData(prev => ({ ...prev, interval: val }))} keyboardType="numeric" inputAccessoryViewID={DONE_MODAL} />
             <TouchableOpacity style={styles.saveBtn} onPress={() => saveMaintenanceForCar(editingMaintenance.key, editingMaintenance.carId, maintData.lastMileage, maintData.interval || editingMaintenance.defaultInterval)}>
               <Text style={styles.saveBtnText}>Save</Text>
             </TouchableOpacity>
@@ -627,8 +630,9 @@ return (
 
       {/* Add Quote Modal — also handles inline repair logger */}
       <Modal visible={showAddQuote} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <View style={styles.modalContent}>
+            <DoneAccessory id={DONE_MODAL} />
             {!showingRepairLogger && (
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Analyze Quote</Text>
@@ -637,7 +641,7 @@ return (
                 </TouchableOpacity>
               </View>
             )}
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>
               {!showingRepairLogger && (
                 <View>
                   {!selectedImage ? (
@@ -701,27 +705,28 @@ return (
                   )}
                 </View>
               )}
-              {showingRepairLogger && <RepairLoggerContent />}
+              {showingRepairLogger && RepairLoggerContent()}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Add Repair Modal */}
       <Modal visible={showAddRepair} animationType="slide" transparent>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <View style={styles.modalContent}>
+            <DoneAccessory id={DONE_MODAL} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Log a Repair</Text>
               <TouchableOpacity onPress={() => setShowAddRepair(false)}>
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>
               <TextInput style={styles.input} placeholder="Repair name (e.g. Oil Change, Brake Pads)" placeholderTextColor="#888" value={repairName} onChangeText={setRepairName} />
               <TextInput style={styles.input} placeholder="Date (e.g. 06/05/2026)" placeholderTextColor="#888" value={repairDate} onChangeText={setRepairDate} />
-              <TextInput style={styles.input} placeholder="Cost (e.g. 250)" placeholderTextColor="#888" value={repairCost} onChangeText={setRepairCost} keyboardType="numeric" />
-              <TextInput style={styles.input} placeholder="Mileage (e.g. 85000)" placeholderTextColor="#888" value={repairMileage} onChangeText={setRepairMileage} keyboardType="numeric" />
+              <TextInput style={styles.input} placeholder="Cost (e.g. 250)" placeholderTextColor="#888" value={repairCost} onChangeText={setRepairCost} keyboardType="numeric" inputAccessoryViewID={DONE_MODAL} />
+              <TextInput style={styles.input} placeholder="Mileage (e.g. 85000)" placeholderTextColor="#888" value={repairMileage} onChangeText={setRepairMileage} keyboardType="numeric" inputAccessoryViewID={DONE_MODAL} />
               <TextInput style={[styles.input, styles.notesInput]} placeholder="Notes (optional)" placeholderTextColor="#888" value={repairNotes} onChangeText={setRepairNotes} multiline />
               <TouchableOpacity style={styles.saveBtn} onPress={addRepair}>
                 <Text style={styles.saveBtnText}>Save Repair</Text>
