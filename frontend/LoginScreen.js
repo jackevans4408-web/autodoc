@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { signIn, signUp } from "./supabase";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
+import { isUsableSession } from "./api";
 
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -31,7 +32,19 @@ export default function LoginScreen({ onLogin }) {
     setLoading(true);
     setError("");
     try {
-      const result = isSignUp ? await signUp(email, password) : await signIn(email, password);
+      let result = isSignUp ? await signUp(email, password) : await signIn(email, password);
+      if (isSignUp && result.success && !isUsableSession(result)) {
+        // Sign-up may not hand back a login token (for example when email confirmation is on); try to sign in right away.
+        const signedIn = await signIn(email, password);
+        if (signedIn.success && isUsableSession(signedIn)) {
+          result = signedIn;
+        } else {
+          setIsSignUp(false);
+          setError("Account created. If you were sent a confirmation email, confirm it, then sign in.");
+          setLoading(false);
+          return;
+        }
+      }
       if (result.success) {
         onLogin(result);
       } else {
@@ -52,7 +65,12 @@ export default function LoginScreen({ onLogin }) {
       if (result.success) {
         const savedSession = await SecureStore.getItemAsync("userSession");
         if (savedSession) {
-          onLogin(JSON.parse(savedSession));
+          const parsed = JSON.parse(savedSession);
+          if (isUsableSession(parsed)) {
+            onLogin(parsed);
+          } else {
+            alert("Please sign in with your email and password once to continue.");
+          }
         } else {
           alert("No saved session found. Please sign in with your email first.");
         }

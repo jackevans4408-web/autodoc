@@ -13,7 +13,7 @@ import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
 import { saveDiagnosis, loadDiagnoses, deleteDiagnosis, updateDiagnosisMessages, fetchDiagnosis } from "./supabase";
 import { buildApiHistory, appendExchange, restoreConversation, adoptSavedId, withUpdatedMessages } from "./historyUtils";
-import { diagnose as callDiagnose, fetchUsage, ApiError } from "./api";
+import { diagnose as callDiagnose, fetchUsage, ApiError, isUsableSession } from "./api";
 import { initPurchases, signOutPurchases } from "./purchases";
 import { formatUsageLine, quotaMessage } from "./plans";
 import PaywallScreen from "./PaywallScreen";
@@ -259,9 +259,14 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
       if (savedDismissed) setDismissedRecalls(JSON.parse(savedDismissed));
       if (savedSession) {
         const parsedSession = JSON.parse(savedSession);
-        setSession(parsedSession);
-        const diags = await loadDiagnoses(parsedSession, { onSession: updateSession });
-        if (diags && diags.length > 0) setSavedDiagnoses(diags);
+        if (isUsableSession(parsedSession)) {
+          setSession(parsedSession);
+          const diags = await loadDiagnoses(parsedSession, { onSession: updateSession });
+          if (diags && diags.length > 0) setSavedDiagnoses(diags);
+        } else {
+          // Saved by an older version without a login token: ask for a fresh sign-in instead of failing quietly later.
+          await SecureStore.deleteItemAsync("userSession");
+        }
         if (savedCar) {
           const parsedCar = JSON.parse(savedCar);
           if (!parsedCar.id) parsedCar.id = Date.now().toString();

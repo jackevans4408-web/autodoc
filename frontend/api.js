@@ -14,6 +14,10 @@ export class ApiError extends Error {
   }
 }
 
+// A session can only be used if it carries the user's access token. Sessions saved by older versions, or created by
+// sign-up (which used to return no token), do not, and the database rejects requests without one.
+export const isUsableSession = (session) => Boolean(session && session.user_id && session.token);
+
 const parseJson = (text) => {
   try {
     return JSON.parse(text);
