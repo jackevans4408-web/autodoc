@@ -22,9 +22,17 @@ def test_signin_failure_returns_error(client, monkeypatch):
 
 def test_signup_success(client, monkeypatch):
     user = SimpleNamespace(id="u2", email="n@b.com")
-    monkeypatch.setattr(auth.supabase.auth, "sign_up", lambda creds: SimpleNamespace(user=user))
+    monkeypatch.setattr(auth.supabase.auth, "sign_up", lambda creds: SimpleNamespace(user=user, session=None))
     r = client.post("/auth/signup", json={"email": "n@b.com", "password": "pw"})
     assert r.json() == {"success": True, "user_id": "u2", "email": "n@b.com"}
+
+
+def test_signup_returns_tokens_when_supabase_issues_a_session(client, monkeypatch):
+    user = SimpleNamespace(id="u3", email="s@b.com")
+    session = SimpleNamespace(access_token="tok", refresh_token="ref")
+    monkeypatch.setattr(auth.supabase.auth, "sign_up", lambda creds: SimpleNamespace(user=user, session=session))
+    r = client.post("/auth/signup", json={"email": "s@b.com", "password": "pw"})
+    assert r.json() == {"success": True, "user_id": "u3", "email": "s@b.com", "token": "tok", "refresh_token": "ref"}
 
 
 def test_auth_is_rate_limited(client, monkeypatch):

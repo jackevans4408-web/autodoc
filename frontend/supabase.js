@@ -102,6 +102,7 @@ export const updateDiagnosisMessages = async (session, id, messages, opts) => {
       session,
       opts
     );
+    if (!response.ok) console.log("Update diagnosis failed:", response.status);
     return response.ok;
   } catch (e) {
     console.log("Error updating diagnosis:", e);
@@ -112,7 +113,10 @@ export const updateDiagnosisMessages = async (session, id, messages, opts) => {
 export const fetchDiagnosis = async (session, id, opts) => {
   try {
     const response = await rest(`diagnoses?id=eq.${encodeURIComponent(id)}`, {}, session, opts);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.log("Fetch diagnosis failed:", response.status);
+      return null;
+    }
     const rows = await response.json();
     return Array.isArray(rows) ? rows[0] || null : null;
   } catch (e) {

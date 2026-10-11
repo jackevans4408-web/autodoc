@@ -45,11 +45,17 @@ def signup(request: AuthRequest):
             "email": request.email,
             "password": request.password
         })
-        return {
+        result = {
             "success": True,
             "user_id": response.user.id,
             "email": response.user.email
         }
+        # A session only exists when email confirmation is off; include the tokens so the app can use the account immediately.
+        session = getattr(response, "session", None)
+        if session:
+            result["token"] = session.access_token
+            result["refresh_token"] = session.refresh_token
+        return result
     except Exception as e:
         return {"success": False, "error": str(e)}
 

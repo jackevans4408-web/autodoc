@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ApiError, BACKEND_URL, authedRequest, diagnose, fetchUsage, refreshSession, toApiError, waitForPaidTier } from "./api.js";
+import { ApiError, BACKEND_URL, authedRequest, diagnose, fetchUsage, isUsableSession, refreshSession, toApiError, waitForPaidTier } from "./api.js";
 
 const reply = (status, body) => ({
   status,
@@ -138,4 +138,11 @@ test("waitForPaidTier keeps polling through transient server errors", async () =
   const { fetchImpl } = scripted(reply(500, "boom"), reply(200, { tier: "unlimited" }));
   const usage = await waitForPaidTier(session, { fetchImpl, sleep: async () => {} });
   assert.equal(usage.tier, "unlimited");
+});
+
+test("isUsableSession needs both a user id and an access token", () => {
+  assert.equal(isUsableSession({ user_id: "u", token: "t" }), true);
+  assert.equal(isUsableSession({ success: true, user_id: "u", email: "a@b.c" }), false); // old sign-up result
+  assert.equal(isUsableSession({ token: "t" }), false);
+  assert.equal(isUsableSession(null), false);
 });
