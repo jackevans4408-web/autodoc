@@ -4,7 +4,7 @@ import PrivacyPolicyScreen from "./PrivacyPolicyScreen";
 import TermsOfServiceScreen from "./TermsOfServiceScreen";
 import HelpFAQScreen from "./HelpFAQScreen";
 
-export default function SettingsScreen({ car, session, onBack, onSignOut, onShowQuoteHistory }) {
+export default function SettingsScreen({ car, session, usage, onShowPaywall, onBack, onSignOut, onShowQuoteHistory }) {
   const [recalls, setRecalls] = useState(null);
   const [loadingRecalls, setLoadingRecalls] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -51,6 +51,14 @@ const [showHelp, setShowHelp] = useState(false);
             <Text style={styles.settingLabel}>📧 Email</Text>
             <Text style={styles.settingValue}>{session?.email || "—"}</Text>
           </View>
+        </View>
+
+        <Text style={styles.sectionLabel}>Subscription</Text>
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.settingRow} onPress={onShowPaywall}>
+            <Text style={styles.settingLabel}>⭐ Plan</Text>
+            <Text style={styles.settingValue}>{planLabel(usage)}  →</Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.sectionLabel}>App</Text>
@@ -110,6 +118,11 @@ const [showHelp, setShowHelp] = useState(false);
     </View>
   );
 }
+
+const planLabel = (usage) => {
+  if (!usage?.tier) return "Free";
+  return usage.tier.charAt(0).toUpperCase() + usage.tier.slice(1);
+};
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0e" },

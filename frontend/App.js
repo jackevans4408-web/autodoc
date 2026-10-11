@@ -13,6 +13,10 @@ import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
 import { saveDiagnosis, loadDiagnoses, deleteDiagnosis, updateDiagnosisMessages, fetchDiagnosis } from "./supabase";
 import { buildApiHistory, appendExchange, restoreConversation } from "./historyUtils";
+import { diagnose as callDiagnose, fetchUsage, ApiError } from "./api";
+import { initPurchases, signOutPurchases } from "./purchases";
+import { formatUsageLine, quotaMessage } from "./plans";
+import PaywallScreen from "./PaywallScreen";
 
 
 function FormattedDiagnosis({ text }) {
@@ -156,6 +160,9 @@ export default function App() {
   const [expandedRecall, setExpandedRecall] = useState(null);
   const [dismissedRecalls, setDismissedRecalls] = useState([]);
   const [obdCode, setObdCode] = useState("");
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallReason, setPaywallReason] = useState(null);
+  const [usage, setUsage] = useState(null);
   
 
   useEffect(() => {
@@ -211,6 +218,37 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
     },
   });
 };
+
+  // Keep the stored session in step with refreshed tokens so the next launch starts with a valid one.
+  const updateSession = async (fresh) => {
+    setSession(fresh);
+    try {
+      await SecureStore.setItemAsync("userSession", JSON.stringify(fresh));
+    } catch (e) {
+      console.log("Could not save refreshed session:", e);
+    }
+  };
+
+  const refreshUsage = async () => {
+    if (!session?.token) return;
+    try {
+      setUsage(await fetchUsage(session, { onSession: updateSession }));
+    } catch (e) {
+      // The counter is a convenience; ignore failures.
+    }
+  };
+
+  const openPaywall = (reason = null) => {
+    setPaywallReason(reason);
+    setShowPaywall(true);
+  };
+
+  useEffect(() => {
+    if (session?.user_id) {
+      initPurchases(session.user_id);
+      refreshUsage();
+    }
+  }, [session?.user_id]);
 
   const checkSavedLogin = async () => {
     try {
@@ -424,15 +462,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
         body.image_type = "image/jpeg";
       }
       abortControllerRef.current = new AbortController();
-      const response = await fetch("https://autodoc-production-1703.up.railway.app/diagnose", {
-        method: "POST",
-        headers: { "Accept": "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: abortControllerRef.current.signal,
-      });
-      const text = await response.text();
-      console.log("Raw server response:", text);
-      const data = JSON.parse(text);
+      const data = await callDiagnose(body, session, { signal: abortControllerRef.current.signal, onSession: updateSession });
 
       // Keep the complete conversation locally; only the request above is trimmed.
       const updatedHistory = appendExchange(fullHistory, userMessage, data.diagnosis);
@@ -457,19 +487,40 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
       }
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
       setDiagnosing(false);
+      refreshUsage();
       
     } catch (error) {
-      if (error.name !== "AbortError") {
+      if (error.name === "AbortError") {
+        // The user cancelled the request.
+      } else if (error instanceof ApiError && error.kind === "quota_exceeded") {
+        const limitMessage = quotaMessage(error.detail);
+        setMessages(prev => [...prev, { role: "bot", text: limitMessage }]);
+        openPaywall(limitMessage);
+        refreshUsage();
+      } else if (error instanceof ApiError && error.kind === "auth_required") {
+        alert("Your session has expired. Please sign in again.");
+        await endSession();
+      } else {
         setMessages(prev => [...prev, { role: "bot", text: "Error: " + error.message }]);
       }
     }
     setDiagnosing(false);
   };
 
+  // Drop only the login (keeps saved cars and history on the device) so the user lands on the sign-in screen.
+  const endSession = async () => {
+    await SecureStore.deleteItemAsync("userSession");
+    await signOutPurchases();
+    setUsage(null);
+    setSession(null);
+  };
+
   const signOut = async () => {
     await SecureStore.deleteItemAsync("userSession");
     await SecureStore.deleteItemAsync("userCar");
     await SecureStore.deleteItemAsync("userCars");
+    await signOutPurchases();
+    setUsage(null);
     setSession(null);
     setCar(null);
     setCars([]);
@@ -521,14 +572,27 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
     />;
   }
 
+  if (showPaywall) {
+    return <PaywallScreen
+      session={session}
+      reason={paywallReason}
+      currentTier={usage?.tier || "free"}
+      onSessionUpdate={updateSession}
+      onClose={() => { setShowPaywall(false); refreshUsage(); }}
+      onUpgraded={(newUsage) => { setUsage(newUsage); setShowPaywall(false); }}
+    />;
+  }
+
   if (showQuoteHistory) {
-    return <QuoteHistoryScreen car={car} cars={cars} onBack={() => setShowQuoteHistory(false)} onRepairLogged={scheduleRepairFollowUp} onMaintenanceUpdated={scheduleMaintenanceReminder} />;
+    return <QuoteHistoryScreen car={car} cars={cars} session={session} onSessionUpdate={updateSession} onUpgrade={openPaywall} onBack={() => setShowQuoteHistory(false)} onRepairLogged={scheduleRepairFollowUp} onMaintenanceUpdated={scheduleMaintenanceReminder} />;
   }
 
   if (showSettings) {
     return <SettingsScreen
       car={car}
       session={session}
+      usage={usage}
+      onShowPaywall={() => { setShowSettings(false); openPaywall(); }}
       onBack={() => setShowSettings(false)}
       onSignOut={signOut}
       onShowQuoteHistory={() => { setShowSettings(false); setShowQuoteHistory(true); }}
@@ -626,6 +690,12 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
       </View>
     )}
 
+      {formatUsageLine(usage, conversationHistory.length > 0 ? "followup" : "diagnosis") && (
+        <TouchableOpacity style={styles.usageBar} onPress={() => openPaywall()}>
+          <Text style={styles.usageText}>{formatUsageLine(usage, conversationHistory.length > 0 ? "followup" : "diagnosis")}</Text>
+          <Text style={styles.usageUpgrade}>Upgrade</Text>
+        </TouchableOpacity>
+      )}
       <View style={styles.inputRow}>
         <TouchableOpacity
           style={[styles.plusBtn, showMediaOptions && styles.plusBtnActive]}
@@ -1009,6 +1079,9 @@ const styles = StyleSheet.create({
   mediaOption: { flex: 1, backgroundColor: "#1e1e21", borderRadius: 12, padding: 12, alignItems: "center", borderWidth: 1, borderColor: "#2e2e33" },
   mediaOptionIcon: { fontSize: 22, marginBottom: 4 },
   mediaOptionText: { color: "#888", fontSize: 11 },
+  usageBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#161618", paddingHorizontal: 16, paddingTop: 8 },
+  usageText: { color: "#888", fontSize: 12 },
+  usageUpgrade: { color: "#f5a623", fontSize: 12, fontWeight: "600" },
   inputRow: { flexDirection: "row", padding: 12, paddingBottom: 8, backgroundColor: "#161618", borderTopWidth: 1, borderTopColor: "#2e2e33", alignItems: "center", gap: 8 },
   plusBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#1e1e21", borderWidth: 1, borderColor: "#2e2e33", justifyContent: "center", alignItems: "center" },
   plusBtnActive: { backgroundColor: "#2e2e33", borderColor: "#f5a623" },
