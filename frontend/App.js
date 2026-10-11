@@ -11,8 +11,8 @@ import QuoteHistoryScreen from "./QuoteHistoryScreen";
 import SettingsScreen from "./SettingsScreen";
 import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
-import { saveDiagnosis, loadDiagnoses, deleteDiagnosis, updateDiagnosisMessages } from "./supabase";
 import { saveDiagnosis, loadDiagnoses, deleteDiagnosis, updateDiagnosisMessages, fetchDiagnosis } from "./supabase";
+import { buildApiHistory, appendExchange, restoreConversation } from "./historyUtils";
 
 
 function FormattedDiagnosis({ text }) {
@@ -149,6 +149,7 @@ export default function App() {
   const [loadingRecalls, setLoadingRecalls] = useState(false);
   const scrollViewRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const savePromiseRef = useRef(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [showCarsDropdown, setShowCarsDropdown] = useState(false);
   const [showOBDModal, setShowOBDModal] = useState(false);
@@ -330,17 +331,19 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
   const startNewDiagnosis = () => {
     setMessages([]);
     setConversationHistory([]);
+    setCurrentDiagnosisId(null);
+    savePromiseRef.current = null;
     setMessage("");
     setSelectedImage(null);
   };
 
-  const saveDiagnosisToHistory = async (problem, diagnosisText) => {
+  const saveDiagnosisToHistory = async (problem, diagnosisText, history) => {
     const newId = Date.now().toString();
     const newDiag = {
       id: newId,
       problem,
       diagnosis: diagnosisText,
-      messages: conversationHistory,
+      messages: history,
       date: new Date().toLocaleDateString(),
       car: `${car?.year} ${car?.make} ${car?.model}`,
     };
@@ -351,37 +354,23 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
       diagnosisText,
       `${car?.year} ${car?.make} ${car?.model}`,
       new Date().toLocaleDateString(),
-      conversationHistory
+      history
     );
     console.log("Supabase ID returned:", supabaseId);
     if (supabaseId) {
       setCurrentDiagnosisId(supabaseId);
       setSavedDiagnoses(prev => prev.map(d => d.id === newId ? { ...d, supabaseId } : d));
     }
+    return supabaseId || null;
   };
   const loadDiagnosis = async (diag) => {
-    const fullDiag = await fetchDiagnosis(diag.id) || diag;
-    let parsedMessages = fullDiag.messages;
-    if (typeof parsedMessages === 'string') {
-      try { parsedMessages = JSON.parse(parsedMessages); } catch(e) { parsedMessages = []; }
-    }
-    if (parsedMessages && parsedMessages.length > 0) {
-      setConversationHistory(parsedMessages);
-      const displayMessages = parsedMessages.map(m => ({
-        role: m.role === "user" ? "user" : "bot",
-        text: m.content
-      }));
-      setMessages(displayMessages);
-    } else {
-      setMessages([
-        { role: "user", text: fullDiag.problem },
-        { role: "bot", text: fullDiag.diagnosis }
-      ]);
-      setConversationHistory([
-        { role: "user", content: fullDiag.problem },
-        { role: "assistant", content: fullDiag.diagnosis }
-      ]);
-    }
+    const fetched = await fetchDiagnosis(diag.id);
+    const { history, display } = restoreConversation(fetched || diag);
+    setConversationHistory(history);
+    setMessages(display);
+    // Point follow-ups at the row we loaded so they update it instead of a previously open conversation.
+    setCurrentDiagnosisId(fetched ? fetched.id : null);
+    savePromiseRef.current = null;
     closeMenuPanel();
   };
 
@@ -417,9 +406,7 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
 
     const activeCar = overrideCar || car;
     const fullHistory = [...conversationHistory];
-    const currentHistory = fullHistory.length > 6
-      ? [fullHistory[0], ...fullHistory.slice(-5)]
-      : fullHistory;
+    const currentHistory = buildApiHistory(fullHistory);
     const isFirstMessage = conversationHistory.length === 0;
 
     try {
@@ -447,11 +434,8 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
       console.log("Raw server response:", text);
       const data = JSON.parse(text);
 
-      const updatedHistory = [
-        ...currentHistory,
-        { role: "user", content: userMessage },
-        { role: "assistant", content: data.diagnosis }
-      ];
+      // Keep the complete conversation locally; only the request above is trimmed.
+      const updatedHistory = appendExchange(fullHistory, userMessage, data.diagnosis);
       setConversationHistory(updatedHistory);
 
       setMessages(prev => [...prev, {
@@ -462,14 +446,14 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
 
       console.log("isFirstMessage:", isFirstMessage);
       if (isFirstMessage) {
-        saveDiagnosisToHistory(userMessage, data.diagnosis);
-      } else if (currentDiagnosisId) {
-        console.log("Updating diagnosis ID:", currentDiagnosisId);
-        console.log("Conversation history length:", conversationHistory.length);
-        await updateDiagnosisMessages(currentDiagnosisId, [...conversationHistory,
-          { role: "user", content: userMessage },
-          { role: "assistant", content: data.diagnosis }
-        ]);
+        savePromiseRef.current = saveDiagnosisToHistory(userMessage, data.diagnosis, updatedHistory);
+      } else {
+        // A quick follow-up can arrive before the first save returns its id, so wait for it.
+        const diagnosisId = currentDiagnosisId || (savePromiseRef.current ? await savePromiseRef.current : null);
+        if (diagnosisId) {
+          console.log("Updating diagnosis ID:", diagnosisId);
+          await updateDiagnosisMessages(diagnosisId, updatedHistory);
+        }
       }
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
       setDiagnosing(false);
