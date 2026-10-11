@@ -17,3 +17,23 @@
 - `frontend/supabase.js` hardcodes the Supabase anon key and uses it for all table access; make sure Row Level Security is on for `diagnoses`.
 - Backend `/diagnose` has no auth or rate limit.
 - New bundle ID + App Store resubmission, Android build, subscriptions: need owner accounts.
+
+## 2026-10-11 (later)
+Open pull requests (stacked; merge in this order):
+1. #1 `fix/diagnosis-history-loading`: synced local work + history fix.
+2. #3 `feature/new-bundle-id`: bundle ID `com.jackevans.engineeye`, SDK 57 config fixes (base: #1).
+3. #5 `feature/subscription-frontend`: paywall, RevenueCat, token-aware API client, usage counter (base: #3).
+4. #2 `feature/backend-tests-rate-limit`: backend tests, per-IP rate limits (base: main).
+5. #4 `feature/subscription-backend`: plans, quotas, RevenueCat webhook, `/auth/refresh`, SQL migration (base: #2).
+
+Tests: backend 101 (`.venv\Scripts\python -m pytest`), frontend 27 (`cd frontend && npm test`). All external services mocked.
+
+Not verified anywhere: real device, TestFlight sandbox purchases, real Supabase SQL execution, real RevenueCat/Apple events.
+
+Owner actions still needed (cannot be done from code):
+- Rotate the Anthropic key exposed in git history (commit 0438b94); check RLS on `diagnoses`.
+- Subscriptions: run `supabase/migrations/001_subscriptions.sql`, set Railway vars (`SUPABASE_SERVICE_KEY`, `REVENUECAT_WEBHOOK_AUTH`), create App Store products + RevenueCat project/webhook, add the RevenueCat public key to `frontend/.env` and EAS. See `docs/SUBSCRIPTIONS.md` and `docs/PAYWALL_APP.md`.
+- App Store: register the new App ID, create the new listing, EAS build/submit. See `docs/NEW_APP_LISTING.md`. Android needs a Google Play developer account.
+- Only after the new app version is live: set `ENFORCE_USAGE_LIMITS=true` on Railway.
+
+Ideas not started: GitHub Actions CI (run both test suites on PRs; add after the PRs merge so the tests exist on main), removing committed `__pycache__` files, pinning backend dependency versions, per-user saving of diagnoses in the backend (currently saved under "anonymous").
