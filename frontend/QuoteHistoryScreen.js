@@ -701,7 +701,7 @@ return (
                   )}
                 </View>
               )}
-              {showingRepairLogger && <RepairLoggerContent />}
+              {showingRepairLogger && RepairLoggerContent()}
             </ScrollView>
           </View>
         </View>
