@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends
-from typing import Optional, List
+from fastapi import APIRouter, Depends, Request
+from typing import Literal, Optional, List
 from pydantic import BaseModel, Field
 from backend.rate_limit import rate_limit
+from backend.quota import release_usage, reserve_usage
+from backend.store import get_store_if_enforced
 from backend.services.claude_service import diagnose_car
 from backend.services.supabase_service import save_diagnosis
 from backend.services.nhtsa_service import get_recalls, format_recalls_for_claude
@@ -31,9 +33,24 @@ class DiagnoseRequest(BaseModel):
     car_engine: Optional[str] = None
     conversation_history: Optional[List[MessageHistory]] = Field(default=None, max_length=20)
     is_followup: Optional[bool] = False
+    # Quote analysis goes through this endpoint too; the app sets kind="quote" so it counts against the quote allowance.
+    kind: Literal["diagnosis", "quote"] = "diagnosis"
 
 @router.post("/diagnose", dependencies=[Depends(diagnose_per_minute), Depends(diagnose_per_hour)])
-def diagnose(request: DiagnoseRequest):
+def diagnose(request: DiagnoseRequest, http_request: Request, store=Depends(get_store_if_enforced)):
+    if request.kind == "quote":
+        usage_kind = "quote"
+    else:
+        usage_kind = "followup" if request.is_followup else "diagnosis"
+    reservation = reserve_usage(http_request, store, usage_kind)
+    try:
+        return _run_diagnosis(request)
+    except Exception:
+        release_usage(store, reservation)
+        raise
+
+
+def _run_diagnosis(request: DiagnoseRequest):
     image_data = None
     if request.image_base64:
         image_data = base64.b64decode(request.image_base64)
