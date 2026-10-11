@@ -18,6 +18,7 @@ import { initPurchases, signOutPurchases } from "./purchases";
 import { formatUsageLine, quotaMessage } from "./plans";
 import PaywallScreen from "./PaywallScreen";
 import ConsentScreen from "./ConsentScreen";
+import { intervalTrigger, safeSchedule, REPAIR_FOLLOW_UP_SECONDS, MAINTENANCE_REMINDER_SECONDS } from "./reminders";
 import DoneAccessory, { DONE_ROOT } from "./DoneAccessory";
 import { prepareImage } from "./prepareImage";
 import { SUBSCRIPTIONS_ENABLED, APP_STORE_ID, LOCAL_DATA_KEYS } from "./config";
@@ -185,7 +186,8 @@ export default function App() {
 
   Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -201,28 +203,23 @@ const registerForNotifications = async () => {
   return finalStatus === "granted";
 };
 
-const scheduleRepairFollowUp = async (repairName) => {
-  await Notifications.scheduleNotificationAsync({
+const scheduleRepairFollowUp = (repairName) =>
+  safeSchedule(Notifications.scheduleNotificationAsync, {
     content: {
       title: "🔧 Did you get anything else done?",
       body: `You logged ${repairName} recently — keep your repair history complete in Engine Eye!`,
     },
-    trigger: {
-      seconds: 60 * 60 * 24 * 14,
-    },
+    trigger: intervalTrigger(Notifications.SchedulableTriggerInputTypes, REPAIR_FOLLOW_UP_SECONDS),
   });
-};
 
-const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, carName) => {
+const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) => {
   const dueAt = parseFloat(lastMileage) + parseFloat(interval);
-  await Notifications.scheduleNotificationAsync({
+  return safeSchedule(Notifications.scheduleNotificationAsync, {
     content: {
       title: `🚗 Maintenance Due — ${carName}`,
       body: `${itemLabel} is due at ${dueAt.toLocaleString()} miles based on your last service at ${parseFloat(lastMileage).toLocaleString()} miles.`,
     },
-    trigger: {
-      seconds: 60 * 60 * 24 * 30,
-    },
+    trigger: intervalTrigger(Notifications.SchedulableTriggerInputTypes, MAINTENANCE_REMINDER_SECONDS),
   });
 };
 
