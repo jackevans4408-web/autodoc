@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "expo start",
-    "test": "node --test historyUtils.test.js api.test.js plans.test.js supabase.test.js consent.test.js",
+    "test": "node --test historyUtils.test.js api.test.js plans.test.js supabase.test.js consent.test.js imageAndQuote.test.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
@@ -16,6 +16,7 @@
     "expo": "~57.0.27",
     "expo-dev-client": "~57.0.19",
     "expo-document-picker": "~57.0.3",
+    "expo-image-manipulator": "~57.0.21",
     "expo-image-picker": "~57.0.20",
     "expo-local-authentication": "~57.0.3",
     "expo-notifications": "~57.0.22",

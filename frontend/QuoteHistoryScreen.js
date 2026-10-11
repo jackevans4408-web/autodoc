@@ -1,5 +1,7 @@
 import { diagnose as callDiagnose, ApiError } from "./api";
 import { quotaMessage } from "./plans";
+import { parseLineItems } from "./quoteParse";
+import { prepareImage } from "./prepareImage";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Keyboard } from "react-native";
 import { useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store";
@@ -84,29 +86,9 @@ export default function QuoteHistoryScreen({ car, cars = [], session, onSessionU
 
   const totalSpent = repairs.reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0);
 
-  const parseLineItems = (analysisText) => {
-    const lines = analysisText.split('\n');
-    const items = [];
-    lines.forEach(line => {
-      const cleaned = line.replace(/^[-•]\s*/, '').trim();
-      if (cleaned && !cleaned.startsWith('✅') && !cleaned.startsWith('⚠️') &&
-          !cleaned.startsWith('🚨') && !cleaned.startsWith('💰') &&
-          !cleaned.startsWith('Pay:') && !cleaned.startsWith('Skip:') &&
-          cleaned.length > 3) {
-        const match = cleaned.match(/^(.+?)\s*\$/);
-        if (match) {
-          const name = match[1].trim();
-          if (name.length > 2) items.push(name);
-        }
-      }
-    });
-    return [...new Set(items)].filter(i => i.length > 2);
-  };
-
   const openRepairLoggerFromSaved = (analysisText) => {
     if (!analysisText) return;
     const items = parseLineItems(analysisText);
-    if (items.length === 0) { alert("Could not parse line items. Try logging repairs manually."); return; }
     setQuoteLineItems(items);
     const initialSelected = {};
     const initialCosts = {};
@@ -206,29 +188,48 @@ export default function QuoteHistoryScreen({ car, cars = [], session, onSessionU
     await SecureStore.setItemAsync("activeMaintenanceItems", JSON.stringify(updated));
   };
 
+  // Photos are shrunk and re-encoded before use (see prepareImage.js); every step is guarded so a bad file shows a message.
+  const attachPhoto = async (uri) => {
+    try {
+      setSelectedImage(await prepareImage(uri));
+      setAnalysis(null);
+    } catch (e) {
+      console.log("Could not prepare photo:", e?.message || e);
+      alert("We couldn't use that photo. Please try a different one.");
+    }
+  };
+
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) { alert("Permission required!"); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 0.8, base64: true });
-    if (!result.canceled) { setSelectedImage(result.assets[0]); setAnalysis(null); }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1 });
+      if (result.canceled || !result.assets?.[0]) return;
+      await attachPhoto(result.assets[0].uri);
+    } catch (e) {
+      alert("We couldn't open your photo library. Check that Engine Eye is allowed to access Photos in Settings.");
+    }
   };
 
   const takePhoto = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) { alert("Permission required!"); return; }
-    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8, base64: true });
-    if (!result.canceled) { setSelectedImage(result.assets[0]); setAnalysis(null); }
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) { alert("Camera access is needed to take a photo. You can allow it in Settings."); return; }
+      const result = await ImagePicker.launchCameraAsync({ quality: 1 });
+      if (result.canceled || !result.assets?.[0]) return;
+      await attachPhoto(result.assets[0].uri);
+    } catch (e) {
+      alert("We couldn't open the camera.");
+    }
   };
 
+  // Images only: PDFs cannot be analysed, so they are not offered.
   const pickDocument = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: ["image/*", "application/pdf"], copyToCacheDirectory: true });
-      if (!result.canceled && result.assets?.[0]) {
-        const asset = result.assets[0];
-        setSelectedImage({ uri: asset.uri, base64: null, name: asset.name, isDocument: true });
-        setAnalysis(null);
-      }
-    } catch (e) { alert("Error picking document"); }
+      const result = await DocumentPicker.getDocumentAsync({ type: ["image/*"], copyToCacheDirectory: true });
+      if (result.canceled || !result.assets?.[0]) return;
+      await attachPhoto(result.assets[0].uri);
+    } catch (e) {
+      alert("We couldn't open that file.");
+    }
   };
 
   const analyzeQuote = async () => {
@@ -673,7 +674,6 @@ return (
                       <Text style={styles.analysisText}>{analysis}</Text>
                       <TouchableOpacity style={styles.logRepairsBtn} onPress={() => {
                         const items = parseLineItems(analysis);
-                        if (items.length === 0) { alert("Could not parse line items. Add repairs manually."); return; }
                         setQuoteLineItems(items);
                         const initialSelected = {};
                         const initialCosts = {};
