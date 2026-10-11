@@ -86,6 +86,9 @@ export const diagnose = (body, session, opts) => authedRequest("/diagnose", { me
 
 export const fetchUsage = (session, opts) => authedRequest("/usage", { method: "GET", signal: opts?.signal }, session, opts);
 
+// Permanently deletes the signed-in user's account and server-side data.
+export const deleteAccount = (session, opts) => authedRequest("/auth/account", { method: "DELETE", signal: opts?.signal }, session, opts);
+
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // After a purchase the plan is activated by a webhook, which can take a few seconds. Poll /usage until it shows a paid tier.

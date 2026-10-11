@@ -1,10 +1,10 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Linking } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Linking, Alert } from "react-native";
 import { useState, useEffect } from "react";
 import PrivacyPolicyScreen from "./PrivacyPolicyScreen";
 import TermsOfServiceScreen from "./TermsOfServiceScreen";
 import HelpFAQScreen from "./HelpFAQScreen";
 
-export default function SettingsScreen({ car, session, usage, onShowPaywall, onBack, onSignOut, onShowQuoteHistory }) {
+export default function SettingsScreen({ car, session, usage, showPlan = false, appStoreId = "", onDeleteAccount, onWithdrawConsent, onShowPaywall, onBack, onSignOut, onShowQuoteHistory }) {
   const [recalls, setRecalls] = useState(null);
   const [loadingRecalls, setLoadingRecalls] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -29,6 +29,34 @@ const [showHelp, setShowHelp] = useState(false);
     setLoadingRecalls(false);
   };
 
+ const confirmWithdrawConsent = () => {
+    Alert.alert(
+      "Withdraw AI permission?",
+      "Engine Eye will stop sending your questions to its AI service. You'll be asked for permission again the next time you open the app, and you can't use diagnoses without it.",
+      [{ text: "Cancel", style: "cancel" }, { text: "Withdraw", style: "destructive", onPress: () => onWithdrawConsent?.() }]
+    );
+  };
+
+  // Two steps, because this cannot be undone.
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      "Delete your account?",
+      "This permanently deletes your account, your saved diagnoses and the information stored on this device. It cannot be undone.\n\nIf you have a subscription, deleting your account does not cancel it. Cancel it in your Apple ID settings.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () =>
+            Alert.alert("Are you sure?", "Your account and all of your data will be deleted for good.", [
+              { text: "Keep my account", style: "cancel" },
+              { text: "Delete everything", style: "destructive", onPress: () => onDeleteAccount?.() },
+            ]),
+        },
+      ]
+    );
+  };
+
   if (showPrivacy) return <PrivacyPolicyScreen onBack={() => setShowPrivacy(false)} />;
   if (showTerms) return <TermsOfServiceScreen onBack={() => setShowTerms(false)} />;
   if (showHelp) return <HelpFAQScreen onBack={() => setShowHelp(false)} />;
@@ -51,15 +79,29 @@ const [showHelp, setShowHelp] = useState(false);
             <Text style={styles.settingLabel}>📧 Email</Text>
             <Text style={styles.settingValue}>{session?.email || "—"}</Text>
           </View>
-        </View>
-
-        <Text style={styles.sectionLabel}>Subscription</Text>
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.settingRow} onPress={onShowPaywall}>
-            <Text style={styles.settingLabel}>⭐ Plan</Text>
-            <Text style={styles.settingValue}>{planLabel(usage)}  →</Text>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.settingRow} onPress={confirmWithdrawConsent}>
+            <Text style={styles.settingLabel}>🔒 Withdraw AI permission</Text>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.settingRow} onPress={confirmDeleteAccount}>
+            <Text style={[styles.settingLabel, { color: "#e05a5a" }]}>🗑 Delete Account</Text>
+            <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
         </View>
+
+        {showPlan ? (
+          <>
+            <Text style={styles.sectionLabel}>Subscription</Text>
+            <View style={styles.section}>
+              <TouchableOpacity style={styles.settingRow} onPress={onShowPaywall}>
+                <Text style={styles.settingLabel}>⭐ Plan</Text>
+                <Text style={styles.settingValue}>{planLabel(usage)}  →</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : null}
 
         <Text style={styles.sectionLabel}>App</Text>
         <View style={styles.section}>
@@ -68,11 +110,15 @@ const [showHelp, setShowHelp] = useState(false);
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
          
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.settingRow} onPress={() => Linking.openURL("itms-apps://itunes.apple.com/app/id6780311483?action=write-review")}>
-            <Text style={styles.settingLabel}>⭐ Rate Engine Eye</Text>
-            <Text style={styles.settingArrow}>→</Text>
-          </TouchableOpacity>
+          {appStoreId ? (
+            <>
+              <View style={styles.divider} />
+              <TouchableOpacity style={styles.settingRow} onPress={() => Linking.openURL(`itms-apps://itunes.apple.com/app/id${appStoreId}?action=write-review`)}>
+                <Text style={styles.settingLabel}>⭐ Rate Engine Eye</Text>
+                <Text style={styles.settingArrow}>→</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
         </View>
 
         <Text style={styles.sectionLabel}>Tools</Text>
