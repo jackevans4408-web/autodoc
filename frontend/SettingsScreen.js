@@ -59,11 +59,7 @@ const [showHelp, setShowHelp] = useState(false);
             <Text style={styles.settingLabel}>🔔 Notifications</Text>
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.settingRow} onPress={() => alert("Coming soon!")}>
-            <Text style={styles.settingLabel}>💰 Subscription</Text>
-            <Text style={styles.settingBadge}>Free</Text>
-          </TouchableOpacity>
+         
           <View style={styles.divider} />
           <TouchableOpacity style={styles.settingRow} onPress={() => Linking.openURL("itms-apps://itunes.apple.com/app/id6780311483?action=write-review")}>
             <Text style={styles.settingLabel}>⭐ Rate Engine Eye</Text>

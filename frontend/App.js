@@ -11,8 +11,8 @@ import QuoteHistoryScreen from "./QuoteHistoryScreen";
 import SettingsScreen from "./SettingsScreen";
 import CarSelectorModal from "./CarSelectorModal";
 import * as SecureStore from "expo-secure-store";
-import { saveDiagnosis, loadDiagnoses, deleteDiagnosis } from "./supabase";
-
+import { saveDiagnosis, loadDiagnoses, deleteDiagnosis, updateDiagnosisMessages } from "./supabase";
+import { saveDiagnosis, loadDiagnoses, deleteDiagnosis, updateDiagnosisMessages, fetchDiagnosis } from "./supabase";
 
 
 function FormattedDiagnosis({ text }) {
@@ -120,6 +120,7 @@ function FormattedDiagnosis({ text }) {
 }
 
 export default function App() {
+  const [currentDiagnosisId, setCurrentDiagnosisId] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showIntro, setShowIntro] = useState(true);
@@ -334,32 +335,53 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
   };
 
   const saveDiagnosisToHistory = async (problem, diagnosisText) => {
-    console.log("Saving diagnosis for user:", session?.user_id || session?.email);
+    const newId = Date.now().toString();
     const newDiag = {
-      id: Date.now().toString(),
+      id: newId,
       problem,
       diagnosis: diagnosisText,
+      messages: conversationHistory,
       date: new Date().toLocaleDateString(),
       car: `${car?.year} ${car?.make} ${car?.model}`,
     };
     setSavedDiagnoses(prev => [newDiag, ...prev].slice(0, 20));
-    await saveDiagnosis(
+    const supabaseId = await saveDiagnosis(
       session?.user_id || session?.email,
       problem,
       diagnosisText,
       `${car?.year} ${car?.make} ${car?.model}`,
-      new Date().toLocaleDateString()
+      new Date().toLocaleDateString(),
+      conversationHistory
     );
+    console.log("Supabase ID returned:", supabaseId);
+    if (supabaseId) {
+      setCurrentDiagnosisId(supabaseId);
+      setSavedDiagnoses(prev => prev.map(d => d.id === newId ? { ...d, supabaseId } : d));
+    }
   };
-  const loadDiagnosis = (diag) => {
-    setMessages([
-      { role: "user", text: diag.problem },
-      { role: "bot", text: diag.diagnosis }
-    ]);
-    setConversationHistory([
-      { role: "user", content: diag.problem },
-      { role: "assistant", content: diag.diagnosis }
-    ]);
+  const loadDiagnosis = async (diag) => {
+    const fullDiag = await fetchDiagnosis(diag.id) || diag;
+    let parsedMessages = fullDiag.messages;
+    if (typeof parsedMessages === 'string') {
+      try { parsedMessages = JSON.parse(parsedMessages); } catch(e) { parsedMessages = []; }
+    }
+    if (parsedMessages && parsedMessages.length > 0) {
+      setConversationHistory(parsedMessages);
+      const displayMessages = parsedMessages.map(m => ({
+        role: m.role === "user" ? "user" : "bot",
+        text: m.content
+      }));
+      setMessages(displayMessages);
+    } else {
+      setMessages([
+        { role: "user", text: fullDiag.problem },
+        { role: "bot", text: fullDiag.diagnosis }
+      ]);
+      setConversationHistory([
+        { role: "user", content: fullDiag.problem },
+        { role: "assistant", content: fullDiag.diagnosis }
+      ]);
+    }
     closeMenuPanel();
   };
 
@@ -441,6 +463,13 @@ const scheduleMaintenanceReminder = async (itemLabel, lastMileage, interval, car
       console.log("isFirstMessage:", isFirstMessage);
       if (isFirstMessage) {
         saveDiagnosisToHistory(userMessage, data.diagnosis);
+      } else if (currentDiagnosisId) {
+        console.log("Updating diagnosis ID:", currentDiagnosisId);
+        console.log("Conversation history length:", conversationHistory.length);
+        await updateDiagnosisMessages(currentDiagnosisId, [...conversationHistory,
+          { role: "user", content: userMessage },
+          { role: "assistant", content: data.diagnosis }
+        ]);
       }
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
       setDiagnosing(false);
