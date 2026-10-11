@@ -41,7 +41,8 @@
           "sounds": []
         }
       ],
-      "expo-local-authentication"
+      "expo-local-authentication",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

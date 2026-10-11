@@ -101,16 +101,6 @@ export default function LoginScreen({ onLogin }) {
               <Text style={styles.faceIdText}>🔒 Sign in with Face ID</Text>
             </TouchableOpacity>
           )}
-
-          <TouchableOpacity onPress={async () => {
-            await SecureStore.deleteItemAsync("userSession");
-            await SecureStore.deleteItemAsync("userCar");
-            await SecureStore.deleteItemAsync("userCars");
-            alert("Storage cleared! Please sign in again.");
-          }} style={{padding: 12, alignItems: "center", marginTop: 8}}>
-            <Text style={{color: "#e05a5a", fontSize: 13}}>Clear saved data</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
             <Text style={styles.switchText}>
               {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
