@@ -16,6 +16,7 @@ Follow-ups are a separate allowance: they do not use up a diagnosis, but they ar
 - `/diagnose` checks the token with Supabase, looks up the user's plan, and atomically counts one use in Postgres. Over the limit returns **HTTP 402** with `{"detail": {"error": "quota_exceeded", "kind", "tier", "limit", "window_hours", "message"}}`. A missing or invalid token returns **401** `{"error": "auth_required"}`. The existing per-IP limiter (429) still applies first.
 - If the AI call fails, the use is given back.
 - Quote analysis must send `"kind": "quote"` in the `/diagnose` body (default is `"diagnosis"`).
+- `/auth/signin` now also returns `refresh_token`, and `POST /auth/refresh` `{refresh_token}` returns a fresh `token` and `refresh_token`. Access tokens last about an hour, so the app must refresh on 401.
 - `GET /usage` returns the user's plan, used and remaining counts, for a usage counter and paywall.
 - `POST /webhooks/revenuecat` receives purchase events and updates the user's plan. Paid plans lapse to Free automatically when `expires_at` passes, even if the expiration webhook is late.
 
