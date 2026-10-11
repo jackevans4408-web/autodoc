@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from backend.rate_limit import rate_limit
 from pydantic import BaseModel
 from supabase import create_client
 from dotenv import load_dotenv
@@ -14,12 +15,14 @@ supabase = create_client(
 
 router = APIRouter()
 
+auth_limit = rate_limit("auth", 10, 60)
+
 class AuthRequest(BaseModel):
     email: str
     password: str
 
-@router.post("/auth/signin")
-async def signin(request: AuthRequest):
+@router.post("/auth/signin", dependencies=[Depends(auth_limit)])
+def signin(request: AuthRequest):
     try:
         response = supabase.auth.sign_in_with_password({
             "email": request.email,
@@ -34,8 +37,8 @@ async def signin(request: AuthRequest):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-@router.post("/auth/signup")
-async def signup(request: AuthRequest):
+@router.post("/auth/signup", dependencies=[Depends(auth_limit)])
+def signup(request: AuthRequest):
     try:
         response = supabase.auth.sign_up({
             "email": request.email,

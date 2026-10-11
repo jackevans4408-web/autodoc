@@ -89,6 +89,17 @@ cd backend
 pip install -r requirements.txt
 python -m uvicorn backend.main:app --port 8080 --host 0.0.0.0
 
+Backend Tests
+
+pip install -r requirements-dev.txt
+python -m pytest
+
+All external services (Claude, Supabase, NHTSA, YouTube) are mocked, so no API keys are needed.
+
+Rate Limits
+
+Per client IP: /diagnose 10 per minute and 60 per hour, /auth/* 10 per minute. Exceeding a limit returns HTTP 429 with a Retry-After header. Override a limit with an env var such as RATE_LIMIT_DIAGNOSE_MINUTE=20. Limits are kept in memory per process.
+
 Frontend Setup
 
 cd frontend
