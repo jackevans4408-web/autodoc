@@ -6,15 +6,9 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0d0d0e"
-    },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.engineeye.app",
+      "bundleIdentifier": "com.jackevans.engineeye",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "Use Face ID to sign in to Engine Eye quickly and securely."
@@ -25,13 +19,20 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0d0d0e"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.engineeye.app"
+      "package": "com.jackevans.engineeye"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0d0d0e",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
+      ],
       "expo-secure-store",
       [
         "expo-notifications",
