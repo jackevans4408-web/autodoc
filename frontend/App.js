@@ -23,6 +23,7 @@ import { intervalTrigger, safeSchedule, REPAIR_FOLLOW_UP_SECONDS, MAINTENANCE_RE
 import DoneAccessory, { DONE_ROOT } from "./DoneAccessory";
 import { prepareImage } from "./prepareImage";
 import { SUBSCRIPTIONS_ENABLED, APP_STORE_ID, LOCAL_DATA_KEYS } from "./config";
+import { recallsCountLabel, parseCollapsed, serializeCollapsed } from "./recallsUtils";
 import { makeConsent, parseConsent, hasValidConsent } from "./consent";
 
 
@@ -166,6 +167,7 @@ export default function App() {
   const [showOBDModal, setShowOBDModal] = useState(false);
   const [expandedRecall, setExpandedRecall] = useState(null);
   const [dismissedRecalls, setDismissedRecalls] = useState([]);
+  const [recallsCollapsed, setRecallsCollapsed] = useState(false);
   const [obdCode, setObdCode] = useState("");
   const [hasConsent, setHasConsent] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
@@ -327,6 +329,7 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
       const savedCars = await SecureStore.getItemAsync("userCars");
       const savedDismissed = await SecureStore.getItemAsync("dismissedRecalls");
       if (savedDismissed) setDismissedRecalls(JSON.parse(savedDismissed));
+      setRecallsCollapsed(parseCollapsed(await SecureStore.getItemAsync("recallsCollapsed")));
       if (savedSession) {
         const parsedSession = JSON.parse(savedSession);
         if (isUsableSession(parsedSession)) {
@@ -378,6 +381,17 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
     const updated = [...dismissedRecalls, recallId];
     setDismissedRecalls(updated);
     await SecureStore.setItemAsync("dismissedRecalls", JSON.stringify(updated));
+  };
+
+  // Lets the user tuck the whole recall list away without marking anything as fixed.
+  const toggleRecallsCollapsed = async () => {
+    const next = !recallsCollapsed;
+    setRecallsCollapsed(next);
+    try {
+      await SecureStore.setItemAsync("recallsCollapsed", serializeCollapsed(next));
+    } catch (e) {
+      // The choice just will not be remembered next time.
+    }
   };
 
   const clearDismissedRecalls = async () => {
@@ -1032,7 +1046,12 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
                   </View>
                 )}
 
-                <Text style={styles.menuSectionLabel}>Active Recalls</Text>
+                <TouchableOpacity style={styles.menuSectionRow} onPress={toggleRecallsCollapsed} accessibilityRole="button" accessibilityLabel={recallsCollapsed ? "Show recalls" : "Hide recalls"}>
+                  <Text style={styles.menuSectionLabelInline}>Active Recalls {recallsCountLabel(recalls, dismissedRecalls)}</Text>
+                  <Text style={styles.menuRecallExpand}>{recallsCollapsed ? "Show ▼" : "Hide ▲"}</Text>
+                </TouchableOpacity>
+                {!recallsCollapsed && (
+                <>
                 {loadingRecalls ? (
                   <ActivityIndicator size="small" color="#f5a623" style={{ marginVertical: 12 }} />
                 ) : recalls === null ? (
@@ -1073,6 +1092,8 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
                       </TouchableOpacity>
                     );
                   })
+                )}
+                </>
                 )}
 
                 <View style={styles.menuDivider} />
@@ -1209,6 +1230,8 @@ const styles = StyleSheet.create({
   menuVehicleCard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginHorizontal: 16, backgroundColor: "#1e1e21", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#2e2e33", marginBottom: 8 },
   menuVehicleName: { color: "#e8e6e0", fontSize: 13, fontWeight: "500" },
   menuVehicleChange: { color: "#f5a623", fontSize: 12 },
+  menuSectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingRight: 16 },
+  menuSectionLabelInline: { color: "#888", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.8, paddingHorizontal: 16, paddingVertical: 8 },
   menuRecallLoading: { color: "#888", fontSize: 13, paddingHorizontal: 16, paddingBottom: 8 },
   menuNoRecalls: { color: "#4caf7d", fontSize: 13, paddingHorizontal: 16, paddingBottom: 8 },
   menuRecallCard: { marginHorizontal: 16, backgroundColor: "#1e1e21", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#e05a5a44", marginBottom: 8 },

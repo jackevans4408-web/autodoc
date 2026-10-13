@@ -14,6 +14,7 @@ export const LOCAL_DATA_KEYS = [
   "repairHistory",
   "savedQuotes",
   "dismissedRecalls",
+  "recallsCollapsed",
   "activeMaintenanceItems",
   "maintenanceSchedule",
   "carMileages",
