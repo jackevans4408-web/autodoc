@@ -18,6 +18,7 @@ import { initPurchases, signOutPurchases } from "./purchases";
 import { formatUsageLine, quotaMessage } from "./plans";
 import PaywallScreen from "./PaywallScreen";
 import ConsentScreen from "./ConsentScreen";
+import DiagnosingIndicator from "./DiagnosingIndicator";
 import { intervalTrigger, safeSchedule, REPAIR_FOLLOW_UP_SECONDS, MAINTENANCE_REMINDER_SECONDS } from "./reminders";
 import DoneAccessory, { DONE_ROOT } from "./DoneAccessory";
 import { prepareImage } from "./prepareImage";
@@ -536,6 +537,7 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
 
     setMessages(prev => [...prev, { role: "user", text: userMessage, image: userImage?.uri }]); 
     setDiagnosing(true);
+    setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 
     const activeCar = overrideCar || car;
     const fullHistory = [...conversationHistory];
@@ -765,10 +767,15 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
           </View>
         ))}
         {diagnosing && (
-          <View style={styles.typingIndicator}>
-            <ActivityIndicator size="small" color="#f5a623" />
-            <Text style={styles.typingText}>Engine Eye is diagnosing... This may take up to 30 seconds.</Text>
-          </View>
+          conversationHistory.length === 0 ? (
+            // The first diagnosis of a conversation takes the longest, so it gets the full animation.
+            <DiagnosingIndicator />
+          ) : (
+            <View style={styles.typingIndicator}>
+              <ActivityIndicator size="small" color="#f5a623" />
+              <Text style={styles.typingText}>Loading response…</Text>
+            </View>
+          )
         )}
       </ScrollView>
 
