@@ -81,11 +81,15 @@ export default function LoginScreen({ onLogin }) {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+    // The scroll view handles the keyboard itself (it adds scroll room and brings the focused field into view). Wrapping it in a
+    // KeyboardAvoidingView as well made the whole page resize and re-centre on every keystroke, which looked like bouncing.
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets
+      >
         <View style={styles.logoArea}>
           <Text style={styles.logo}>Engine Eye</Text>
           <Text style={styles.tagline}>AI Car Diagnostics</Text>
@@ -100,7 +104,12 @@ export default function LoginScreen({ onLogin }) {
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
             keyboardType="email-address"
+            textContentType="emailAddress"
+            autoComplete="email"
+            returnKeyType="next"
           />
           <TextInput
             style={styles.input}
@@ -109,6 +118,8 @@ export default function LoginScreen({ onLogin }) {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            returnKeyType="done"
+            onSubmitEditing={handleAuth}
           />
           <TouchableOpacity style={styles.btn} onPress={handleAuth} disabled={loading}>
             {loading ? <ActivityIndicator color="#0d0d0e" /> : <Text style={styles.btnText}>{isSignUp ? "Sign Up" : "Sign In"}</Text>}
@@ -126,7 +137,7 @@ export default function LoginScreen({ onLogin }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
