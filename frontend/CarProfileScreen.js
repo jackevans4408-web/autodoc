@@ -13,7 +13,7 @@ const ALL_MAKES = [
   "Volkswagen", "Volvo", "Other"
 ];
 
-export default function CarProfileScreen({ onSave, onCancel }) {
+export default function CarProfileScreen({ onSave, onCancel, onSignOut, onOpenSettings }) {
   const [vin, setVin] = useState("");
   const [vinLoading, setVinLoading] = useState(false);
   const [vinError, setVinError] = useState("");
@@ -269,6 +269,22 @@ export default function CarProfileScreen({ onSave, onCancel }) {
         <TouchableOpacity style={styles.btn} onPress={handleSave}>
           <Text style={styles.btnText}>Save My Car</Text>
         </TouchableOpacity>
+
+        {/* With no vehicle yet there is no other screen to reach, so offer the account options here. */}
+        {!onCancel && (onOpenSettings || onSignOut) ? (
+          <View style={styles.footerLinks}>
+            {onOpenSettings ? (
+              <TouchableOpacity onPress={onOpenSettings}>
+                <Text style={styles.footerLink}>Settings</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onSignOut ? (
+              <TouchableOpacity onPress={onSignOut}>
+                <Text style={styles.footerLink}>Sign out</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       {/* Make Picker Modal */}
@@ -381,6 +397,8 @@ const styles = StyleSheet.create({
   dropdownArrow: { color: "#888", fontSize: 12 },
   btn: { backgroundColor: "#f5a623", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 32, marginBottom: 40 },
   btnText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 16 },
+  footerLinks: { flexDirection: "row", justifyContent: "center", gap: 32, marginTop: 28 },
+  footerLink: { color: "#888", fontSize: 15, padding: 6 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
   modalContent: { backgroundColor: "#161618", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "80%", paddingBottom: 20 },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: "#2e2e33" },

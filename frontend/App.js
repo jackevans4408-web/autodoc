@@ -18,6 +18,7 @@ import { initPurchases, signOutPurchases } from "./purchases";
 import { formatUsageLine, quotaMessage } from "./plans";
 import PaywallScreen from "./PaywallScreen";
 import ConsentScreen from "./ConsentScreen";
+import { afterDeletingVehicle } from "./vehicleUtils";
 import DiagnosingIndicator from "./DiagnosingIndicator";
 import { intervalTrigger, safeSchedule, REPAIR_FOLLOW_UP_SECONDS, MAINTENANCE_REMINDER_SECONDS } from "./reminders";
 import DoneAccessory, { DONE_ROOT } from "./DoneAccessory";
@@ -635,12 +636,18 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
   };
 
   const deleteCar = async (carId) => {
-    const updated = cars.filter(c => c.id !== carId);
-    setCars(updated);
-    await SecureStore.setItemAsync("userCars", JSON.stringify(updated));
-    if (car?.id === carId && updated.length > 0) {
-      setCar(updated[0]);
-      await SecureStore.setItemAsync("userCar", JSON.stringify(updated[0]));
+    const next = afterDeletingVehicle(cars, car, carId);
+    setCars(next.cars);
+    await SecureStore.setItemAsync("userCars", JSON.stringify(next.cars));
+    if (next.activeCar !== car) {
+      setCar(next.activeCar);
+      if (next.activeCar) {
+        await SecureStore.setItemAsync("userCar", JSON.stringify(next.activeCar));
+      } else {
+        await SecureStore.deleteItemAsync("userCar");
+        setMessages([]);
+        setConversationHistory([]);
+      }
     }
   };
 
@@ -663,6 +670,22 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
     return <ConsentScreen onAgree={agreeToAI} onDecline={declineAI} />;
   }
 
+  if (showSettings) {
+    return <SettingsScreen
+      car={car}
+      session={session}
+      usage={usage}
+      showPlan={SUBSCRIPTIONS_ENABLED}
+      appStoreId={APP_STORE_ID}
+      onDeleteAccount={deleteMyAccount}
+      onWithdrawConsent={withdrawAIConsent}
+      onShowPaywall={() => { setShowSettings(false); openPaywall(); }}
+      onBack={() => setShowSettings(false)}
+      onSignOut={signOut}
+      onShowQuoteHistory={() => { setShowSettings(false); setShowQuoteHistory(true); }}
+    />;
+  }
+
   if (!car || showAddCar) {
     return <CarProfileScreen 
       onSave={async (carData) => {
@@ -675,6 +698,8 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
         setShowAddCar(false);
       }}
       onCancel={cars.length > 0 ? () => setShowAddCar(false) : null}
+      onSignOut={signOut}
+      onOpenSettings={() => setShowSettings(true)}
     />;
   }
 
@@ -691,22 +716,6 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
 
   if (showQuoteHistory) {
     return <QuoteHistoryScreen car={car} cars={cars} session={session} onSessionUpdate={updateSession} onUpgrade={openPaywall} onBack={() => setShowQuoteHistory(false)} onRepairLogged={scheduleRepairFollowUp} onMaintenanceUpdated={scheduleMaintenanceReminder} />;
-  }
-
-  if (showSettings) {
-    return <SettingsScreen
-      car={car}
-      session={session}
-      usage={usage}
-      showPlan={SUBSCRIPTIONS_ENABLED}
-      appStoreId={APP_STORE_ID}
-      onDeleteAccount={deleteMyAccount}
-      onWithdrawConsent={withdrawAIConsent}
-      onShowPaywall={() => { setShowSettings(false); openPaywall(); }}
-      onBack={() => setShowSettings(false)}
-      onSignOut={signOut}
-      onShowQuoteHistory={() => { setShowSettings(false); setShowQuoteHistory(true); }}
-    />;
   }
 
   return (
