@@ -273,7 +273,7 @@ export default function CarProfileScreen({ onSave, onCancel }) {
 
       {/* Make Picker Modal */}
       <Modal visible={showMakePicker} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Make</Text>
@@ -283,12 +283,16 @@ export default function CarProfileScreen({ onSave, onCancel }) {
             </View>
             <TextInput
               style={styles.searchInput}
+              autoCorrect={false}
+              returnKeyType="done"
               placeholder="Search makes..."
               placeholderTextColor="#888"
               value={makeSearch}
               onChangeText={setMakeSearch}
             />
             <FlatList
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               data={filteredMakes}
               keyExtractor={item => item}
               renderItem={({ item }) => (
@@ -302,12 +306,12 @@ export default function CarProfileScreen({ onSave, onCancel }) {
               )}
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Model Picker Modal */}
       <Modal visible={showModelPicker} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Model</Text>
@@ -317,12 +321,16 @@ export default function CarProfileScreen({ onSave, onCancel }) {
             </View>
             <TextInput
               style={styles.searchInput}
+              autoCorrect={false}
+              returnKeyType="done"
               placeholder="Search models..."
               placeholderTextColor="#888"
               value={modelSearch}
               onChangeText={setModelSearch}
             />
             <FlatList
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               data={filteredModels}
               keyExtractor={item => item}
               renderItem={({ item }) => (
@@ -336,7 +344,7 @@ export default function CarProfileScreen({ onSave, onCancel }) {
               )}
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </ScrollView>
     </KeyboardAvoidingView>
