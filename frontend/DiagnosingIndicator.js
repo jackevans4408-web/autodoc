@@ -4,8 +4,15 @@ import Svg, { Path, Circle } from "react-native-svg";
 import { CAR, GEAR } from "./loadingShapes";
 
 const ORANGE = "#f5a623";
-const STROKE = 2;
-const TRACK_HEIGHT = 56;
+// Everything is drawn in the shapes' own units and scaled down by SCALE. Line widths are in those units too, so they are
+// set heavier than they look (3 units is about 1.5 pixels at half size).
+const SCALE = 0.5;
+const STROKE = 3;
+const HUB_STROKE = 2.5;
+const GEAR_PX = GEAR.size * SCALE;
+const CAR_W = CAR.width * SCALE;
+const CAR_H = CAR.height * SCALE;
+const TRACK_HEIGHT = 34;
 
 // Shown while a diagnosis is loading (up to about 30 seconds). A gear spins, slides to the right, and turns into a car.
 // With "Reduce Motion" turned on in iOS settings it falls back to a plain spinner.
@@ -49,7 +56,7 @@ export default function DiagnosingIndicator() {
   }, [reduceMotion]);
 
   // The car sits at the right edge; the gear stops in the middle of where the car will appear.
-  const travel = Math.max(width - CAR.width + (CAR.width - GEAR.size) / 2, 0);
+  const travel = Math.max(width - CAR_W + (CAR_W - GEAR_PX) / 2, 0);
   const gearOpacity = Animated.multiply(fade, Animated.subtract(1, morph));
   const carOpacity = Animated.multiply(fade, morph);
 
@@ -80,7 +87,7 @@ export default function DiagnosingIndicator() {
               },
             ]}
           >
-            <Svg width={GEAR.size} height={GEAR.size} viewBox={`0 0 ${GEAR.size} ${GEAR.size}`}>
+            <Svg width={GEAR_PX} height={GEAR_PX} viewBox={`0 0 ${GEAR.size} ${GEAR.size}`}>
               <Path d={GEAR.path} fill="none" stroke={ORANGE} strokeWidth={STROKE} strokeLinejoin="round" />
             </Svg>
           </Animated.View>
@@ -91,13 +98,13 @@ export default function DiagnosingIndicator() {
               {
                 opacity: carOpacity,
                 transform: [
-                  { translateX: morph.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) },
+                  { translateX: morph.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) },
                   { scale: morph.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
                 ],
               },
             ]}
           >
-            <Svg width={CAR.width} height={CAR.height} viewBox={`0 0 ${CAR.width} ${CAR.height}`}>
+            <Svg width={CAR_W} height={CAR_H} viewBox={`0 0 ${CAR.width} ${CAR.height}`}>
               <Path d={CAR.body} fill="none" stroke={ORANGE} strokeWidth={STROKE} strokeLinejoin="round" strokeLinecap="round" />
               {CAR.windows.map((d) => (
                 <Path key={d} d={d} fill="none" stroke={ORANGE} strokeWidth={STROKE} strokeLinejoin="round" />
@@ -106,7 +113,7 @@ export default function DiagnosingIndicator() {
                 <Circle key={`w${w.cx}`} cx={w.cx} cy={w.cy} r={w.r} fill="#0d0d0e" stroke={ORANGE} strokeWidth={STROKE} />
               ))}
               {CAR.wheels.map((w) => (
-                <Circle key={`h${w.cx}`} cx={w.cx} cy={w.cy} r={2} fill="none" stroke={ORANGE} strokeWidth={1.5} />
+                <Circle key={`h${w.cx}`} cx={w.cx} cy={w.cy} r={2} fill="none" stroke={ORANGE} strokeWidth={HUB_STROKE} />
               ))}
             </Svg>
           </Animated.View>
@@ -120,7 +127,7 @@ const styles = StyleSheet.create({
   box: { marginHorizontal: 20, marginVertical: 12 },
   title: { color: "#e8e6e0", fontSize: 15, fontWeight: "600" },
   hint: { color: "#888", fontSize: 12, marginTop: 2 },
-  track: { height: TRACK_HEIGHT, marginTop: 12, justifyContent: "center" },
-  gear: { position: "absolute", left: 0, top: (TRACK_HEIGHT - GEAR.size) / 2 },
-  car: { position: "absolute", right: 0, top: (TRACK_HEIGHT - CAR.height) / 2 },
+  track: { height: TRACK_HEIGHT, marginTop: 8, justifyContent: "center" },
+  gear: { position: "absolute", left: 0, top: (TRACK_HEIGHT - GEAR_PX) / 2 },
+  car: { position: "absolute", right: 0, top: (TRACK_HEIGHT - CAR_H) / 2 },
 });
