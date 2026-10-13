@@ -103,7 +103,7 @@ export default function DiagnosingIndicator() {
                 <Path key={d} d={d} fill="none" stroke={ORANGE} strokeWidth={STROKE} strokeLinejoin="round" />
               ))}
               {CAR.wheels.map((w) => (
-                <Circle key={`w${w.cx}`} cx={w.cx} cy={w.cy} r={w.r} fill="#161618" stroke={ORANGE} strokeWidth={STROKE} />
+                <Circle key={`w${w.cx}`} cx={w.cx} cy={w.cy} r={w.r} fill="#0d0d0e" stroke={ORANGE} strokeWidth={STROKE} />
               ))}
               {CAR.wheels.map((w) => (
                 <Circle key={`h${w.cx}`} cx={w.cx} cy={w.cy} r={2} fill="none" stroke={ORANGE} strokeWidth={1.5} />
@@ -117,7 +117,7 @@ export default function DiagnosingIndicator() {
 }
 
 const styles = StyleSheet.create({
-  box: { marginHorizontal: 16, marginVertical: 8, padding: 14, backgroundColor: "#161618", borderRadius: 12, borderWidth: 1, borderColor: "#2e2e33" },
+  box: { marginHorizontal: 20, marginVertical: 12 },
   title: { color: "#e8e6e0", fontSize: 15, fontWeight: "600" },
   hint: { color: "#888", fontSize: 12, marginTop: 2 },
   track: { height: TRACK_HEIGHT, marginTop: 12, justifyContent: "center" },

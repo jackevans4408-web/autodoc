@@ -766,7 +766,17 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
             )}
           </View>
         ))}
-        {diagnosing && <DiagnosingIndicator />}
+        {diagnosing && (
+          conversationHistory.length === 0 ? (
+            // The first diagnosis of a conversation takes the longest, so it gets the full animation.
+            <DiagnosingIndicator />
+          ) : (
+            <View style={styles.typingIndicator}>
+              <ActivityIndicator size="small" color="#f5a623" />
+              <Text style={styles.typingText}>Loading response…</Text>
+            </View>
+          )
+        )}
       </ScrollView>
 
       {selectedImage && (
