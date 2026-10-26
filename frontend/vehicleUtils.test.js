@@ -24,3 +24,24 @@ test("deleting an unknown id changes nothing", () => {
 test("works when there was no active vehicle", () => {
   assert.deepEqual(afterDeletingVehicle([civic], null, "1"), { cars: [], activeCar: null });
 });
+
+import { carLabel, needsVehicleScreen } from "./vehicleUtils.js";
+
+test("carLabel joins the parts and never prints undefined", () => {
+  assert.equal(carLabel({ year: "2015", make: "Honda", model: "Civic" }), "2015 Honda Civic");
+  assert.equal(carLabel({ year: "2015", make: "Honda" }), "2015 Honda");
+  assert.equal(carLabel({}), "");
+  assert.equal(carLabel(null), "");
+  assert.equal(carLabel(undefined), "");
+});
+
+test("a new user is sent to the vehicle screen unless they skipped it", () => {
+  assert.equal(needsVehicleScreen({ car: null, showAddCar: false, skipped: false }), true);
+  assert.equal(needsVehicleScreen({ car: null, showAddCar: false, skipped: true }), false);
+});
+
+test("having a vehicle skips the screen, and asking to add one always shows it", () => {
+  assert.equal(needsVehicleScreen({ car: civic, showAddCar: false, skipped: false }), false);
+  assert.equal(needsVehicleScreen({ car: civic, showAddCar: true, skipped: false }), true);
+  assert.equal(needsVehicleScreen({ car: null, showAddCar: true, skipped: true }), true);
+});

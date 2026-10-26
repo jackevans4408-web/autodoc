@@ -2,6 +2,7 @@ import { diagnose as callDiagnose, ApiError } from "./api";
 import { quotaMessage } from "./plans";
 import { parseLineItems } from "./quoteParse";
 import { prepareImage } from "./prepareImage";
+import { carLabel } from "./vehicleUtils";
 import DoneAccessory, { DONE_ROOT, DONE_MODAL } from "./DoneAccessory";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Keyboard } from "react-native";
 import { useState, useEffect } from "react";
@@ -29,7 +30,7 @@ const ALL_MAINTENANCE_OPTIONS = [
 ];
 
 export default function QuoteHistoryScreen({ car, cars = [], session, onSessionUpdate, onUpgrade, onBack, onRepairLogged, onMaintenanceUpdated }) {
-  const displayCars = cars.length > 0 ? cars.slice(0, 3) : [car];
+  const displayCars = cars.length > 0 ? cars.slice(0, 3) : car ? [car] : [];
 
   const [activeTab, setActiveTab] = useState("quotes");
   const [repairs, setRepairs] = useState([]);
@@ -112,7 +113,7 @@ export default function QuoteHistoryScreen({ car, cars = [], session, onSessionU
           date: new Date().toLocaleDateString(),
           cost: repairCosts[i] || "0",
           mileage: "",
-          notes: `From quote — ${selectedCarForRepair?.year} ${selectedCarForRepair?.make} ${selectedCarForRepair?.model}`,
+          notes: `From quote${carLabel(selectedCarForRepair) ? " — " + carLabel(selectedCarForRepair) : ""}`,
         });
       }
     });
@@ -124,7 +125,7 @@ export default function QuoteHistoryScreen({ car, cars = [], session, onSessionU
           date: new Date().toLocaleDateString(),
           cost: r.cost || "0",
           mileage: "",
-          notes: `From quote — ${selectedCarForRepair?.year} ${selectedCarForRepair?.make} ${selectedCarForRepair?.model}`,
+          notes: `From quote${carLabel(selectedCarForRepair) ? " — " + carLabel(selectedCarForRepair) : ""}`,
         });
       }
     });
@@ -238,7 +239,7 @@ export default function QuoteHistoryScreen({ car, cars = [], session, onSessionU
     setAnalyzing(true);
     try {
       const body = {
-        text: `Analyze this mechanic repair quote for my ${car?.year} ${car?.make} ${car?.model}. Return ONLY this exact format, no extra text or paragraphs:
+        text: `Analyze this mechanic repair quote ${carLabel(car) ? `for my ${carLabel(car)}` : ""}. Return ONLY this exact format, no extra text or paragraphs:
 
         ✅ NECESSARY
         - [Item] $[price] — [Fair price / Slightly high / Overpriced] (DIY $[price] if applicable)
@@ -338,7 +339,7 @@ export default function QuoteHistoryScreen({ car, cars = [], session, onSessionU
           <Text style={styles.modalClose}>← Back</Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.extraRepairsLabel}>Select Vehicle</Text>
+      {(cars.length > 0 || car) ? <Text style={styles.extraRepairsLabel}>Select Vehicle</Text> : null}
       {(cars.length > 0 ? cars : car ? [car] : []).map((c, i) => (
         <TouchableOpacity
           key={i}
@@ -483,6 +484,7 @@ return (
               <Text style={styles.summaryAmount}>${totalSpent.toFixed(2)}</Text>
             </View>
             <Text style={styles.sectionTitle}>🚗 My Vehicles</Text>
+            {displayCars.length === 0 ? <Text style={styles.noItemsText}>No vehicles yet. Add one from the chat screen to track mileage and maintenance.</Text> : null}
             {displayCars.map((c) => {
               const carId = c.id || c.make + c.model + c.year;
               const mileage = carMileages[carId];

@@ -18,7 +18,7 @@ import { initPurchases, signOutPurchases } from "./purchases";
 import { formatUsageLine, quotaMessage } from "./plans";
 import PaywallScreen from "./PaywallScreen";
 import ConsentScreen from "./ConsentScreen";
-import { afterDeletingVehicle } from "./vehicleUtils";
+import { afterDeletingVehicle, carLabel, needsVehicleScreen } from "./vehicleUtils";
 import DiagnosingIndicator from "./DiagnosingIndicator";
 import { intervalTrigger, safeSchedule, REPAIR_FOLLOW_UP_SECONDS, MAINTENANCE_REMINDER_SECONDS } from "./reminders";
 import DoneAccessory, { DONE_ROOT } from "./DoneAccessory";
@@ -169,6 +169,7 @@ export default function App() {
   const [expandedRecall, setExpandedRecall] = useState(null);
   const [dismissedRecalls, setDismissedRecalls] = useState([]);
   const [recallsCollapsed, setRecallsCollapsed] = useState(false);
+  const [vehicleSkipped, setVehicleSkipped] = useState(false);
   const [obdCode, setObdCode] = useState("");
   const [hasConsent, setHasConsent] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
@@ -331,6 +332,7 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
       const savedDismissed = await SecureStore.getItemAsync("dismissedRecalls");
       if (savedDismissed) setDismissedRecalls(JSON.parse(savedDismissed));
       setRecallsCollapsed(parseCollapsed(await SecureStore.getItemAsync("recallsCollapsed")));
+      setVehicleSkipped((await SecureStore.getItemAsync("vehicleSkipped")) === "true");
       if (savedSession) {
         const parsedSession = JSON.parse(savedSession);
         if (isUsableSession(parsedSession)) {
@@ -478,14 +480,14 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
       diagnosis: diagnosisText,
       messages: history,
       date: new Date().toLocaleDateString(),
-      car: `${car?.year} ${car?.make} ${car?.model}`,
+      car: carLabel(car),
     };
     setSavedDiagnoses(prev => [newDiag, ...prev].slice(0, 20));
     const supabaseId = await saveDiagnosis(
       session,
       problem,
       diagnosisText,
-      `${car?.year} ${car?.make} ${car?.model}`,
+      carLabel(car),
       new Date().toLocaleDateString(),
       history,
       { onSession: updateSession }
@@ -635,6 +637,12 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
     setConversationHistory([]);
   };
 
+  // Remember that the user chose to use the app without a vehicle, so the add-vehicle screen is not forced on them again.
+  const skipVehicle = async () => {
+    setVehicleSkipped(true);
+    try { await SecureStore.setItemAsync("vehicleSkipped", "true"); } catch (e) { /* will just ask again next launch */ }
+  };
+
   const deleteCar = async (carId) => {
     const next = afterDeletingVehicle(cars, car, carId);
     setCars(next.cars);
@@ -647,6 +655,7 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
         await SecureStore.deleteItemAsync("userCar");
         setMessages([]);
         setConversationHistory([]);
+        skipVehicle();
       }
     }
   };
@@ -686,7 +695,7 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
     />;
   }
 
-  if (!car || showAddCar) {
+  if (needsVehicleScreen({ car, showAddCar, skipped: vehicleSkipped })) {
     return <CarProfileScreen 
       onSave={async (carData) => {
         const newCar = { ...carData, id: Date.now().toString() + Math.random().toString(36).substring(2, 7) };
@@ -697,7 +706,8 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
         await SecureStore.setItemAsync("userCar", JSON.stringify(newCar));
         setShowAddCar(false);
       }}
-      onCancel={cars.length > 0 ? () => setShowAddCar(false) : null}
+      onCancel={cars.length > 0 || vehicleSkipped ? () => setShowAddCar(false) : null}
+      onSkip={cars.length === 0 && !showAddCar ? skipVehicle : null}
       onSignOut={signOut}
       onOpenSettings={() => setShowSettings(true)}
     />;
@@ -729,10 +739,16 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerText}>Engine Eye</Text>
-          <TouchableOpacity style={styles.carSelector} onPress={() => setShowCarSelector(true)}>
-            <Text style={styles.carSelectorText} numberOfLines={1}>{car.year} {car.make} {car.model}</Text>
-            <Text style={styles.carSelectorArrow}>▼</Text>
-          </TouchableOpacity>
+          {car ? (
+            <TouchableOpacity style={styles.carSelector} onPress={() => setShowCarSelector(true)}>
+              <Text style={styles.carSelectorText} numberOfLines={1}>{carLabel(car)}</Text>
+              <Text style={styles.carSelectorArrow}>▼</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.carSelector} onPress={() => setShowAddCar(true)}>
+              <Text style={styles.carSelectorText}>+ Add vehicle</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={() => setShowQuoteHistory(true)}>
@@ -854,6 +870,9 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
               const msgToSend = message;
               setMessage("");
               sendMessage(car, msgToSend);
+            } else if (!car) {
+              // No vehicle to choose between, so go straight to the diagnosis.
+              sendMessage({});
             } else {
               setPendingMessage(message);
               setPendingImage(selectedImage);
@@ -1057,6 +1076,7 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
                       setCar(null);
                       await SecureStore.setItemAsync("userCars", JSON.stringify([]));
                       await SecureStore.deleteItemAsync("userCar");
+                      skipVehicle();
                       setShowMenuPanel(false);
                       slideAnim.setValue(0);
                     }}>
@@ -1071,7 +1091,9 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
                 </TouchableOpacity>
                 {!recallsCollapsed && (
                 <>
-                {loadingRecalls ? (
+                {!car ? (
+                  <Text style={styles.menuRecallLoading}>Add a vehicle to check it for safety recalls.</Text>
+                ) : loadingRecalls ? (
                   <ActivityIndicator size="small" color="#f5a623" style={{ marginVertical: 12 }} />
                 ) : recalls === null ? (
                   <Text style={styles.menuRecallLoading}>Loading recalls...</Text>

@@ -5,3 +5,9 @@ export const afterDeletingVehicle = (cars, activeCar, deletedId) => {
   if (!activeCar || activeCar.id !== deletedId) return { cars: remaining, activeCar };
   return { cars: remaining, activeCar: remaining[0] || null };
 };
+
+// "2015 Honda Civic", or an empty string when there is no vehicle (never "undefined undefined undefined").
+export const carLabel = (car) => [car?.year, car?.make, car?.model].filter(Boolean).join(" ");
+
+// The "add your vehicle" screen is only forced on a new user who has not chosen to skip it.
+export const needsVehicleScreen = ({ car, showAddCar, skipped }) => Boolean(showAddCar || (!car && !skipped));

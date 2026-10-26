@@ -121,8 +121,6 @@ const [showHelp, setShowHelp] = useState(false);
           ) : null}
         </View>
 
-        {car ? (
-          <>
         <Text style={styles.sectionLabel}>Tools</Text>
         <View style={styles.section}>
           <TouchableOpacity style={styles.settingRow} onPress={onShowQuoteHistory}>
@@ -130,8 +128,6 @@ const [showHelp, setShowHelp] = useState(false);
             <Text style={styles.settingArrow}>→</Text>
           </TouchableOpacity>
         </View>
-          </>
-        ) : null}
 
         <Text style={styles.sectionLabel}>Support</Text>
         <View style={styles.section}>
