@@ -13,7 +13,7 @@ const ALL_MAKES = [
   "Volkswagen", "Volvo", "Other"
 ];
 
-export default function CarProfileScreen({ onSave, onCancel, onSignOut, onOpenSettings }) {
+export default function CarProfileScreen({ onSave, onCancel, onSkip, onSignOut, onOpenSettings }) {
   const [vin, setVin] = useState("");
   const [vinLoading, setVinLoading] = useState(false);
   const [vinError, setVinError] = useState("");
@@ -270,6 +270,15 @@ export default function CarProfileScreen({ onSave, onCancel, onSignOut, onOpenSe
           <Text style={styles.btnText}>Save My Car</Text>
         </TouchableOpacity>
 
+        {onSkip ? (
+          <>
+            <TouchableOpacity style={styles.skipBtn} onPress={onSkip}>
+              <Text style={styles.skipText}>Skip for now</Text>
+            </TouchableOpacity>
+            <Text style={styles.skipHint}>You can add a vehicle any time. It's used to look up safety recalls and to make diagnoses more specific.</Text>
+          </>
+        ) : null}
+
         {/* With no vehicle yet there is no other screen to reach, so offer the account options here. */}
         {!onCancel && (onOpenSettings || onSignOut) ? (
           <View style={styles.footerLinks}>
@@ -397,6 +406,9 @@ const styles = StyleSheet.create({
   dropdownArrow: { color: "#888", fontSize: 12 },
   btn: { backgroundColor: "#f5a623", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 32, marginBottom: 40 },
   btnText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 16 },
+  skipBtn: { alignItems: "center", paddingVertical: 14, marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: "#2e2e33" },
+  skipText: { color: "#e8e6e0", fontSize: 16, fontWeight: "600" },
+  skipHint: { color: "#888", fontSize: 12, lineHeight: 17, textAlign: "center", marginTop: 10, paddingHorizontal: 8 },
   footerLinks: { flexDirection: "row", justifyContent: "center", gap: 32, marginTop: 28 },
   footerLink: { color: "#888", fontSize: 15, padding: 6 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },

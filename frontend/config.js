@@ -19,4 +19,5 @@ export const LOCAL_DATA_KEYS = [
   "maintenanceSchedule",
   "carMileages",
   "aiConsent",
+  "vehicleSkipped",
 ];
