@@ -11,7 +11,7 @@ export default function PrivacyPolicyScreen({ onBack }) {
         <View style={{ width: 60 }} />
       </View>
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.lastUpdated}>Last Updated: October 11, 2026</Text>
+        <Text style={styles.lastUpdated}>Last Updated: October 29, 2026</Text>
         <Text style={styles.intro}>Engine Eye ("we", "our", "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, share, and protect your information when you use the Engine Eye mobile application. By using Engine Eye, you consent to the practices described in this policy.</Text>
 
         <Text style={styles.section}>1. Information We Collect</Text>
@@ -29,9 +29,8 @@ export default function PrivacyPolicyScreen({ onBack }) {
         <Text style={styles.bullet}>• OBD-II diagnostic trouble codes you enter</Text>
         <Text style={styles.bullet}>• Mechanic quotes you upload for analysis</Text>
         <Text style={styles.subheader}>Usage Data</Text>
-        <Text style={styles.bullet}>• Features you use and how frequently</Text>
-        <Text style={styles.bullet}>• App performance data and crash reports</Text>
-        <Text style={styles.bullet}>• Device type, operating system version, and app version</Text>
+        <Text style={styles.bullet}>• We do not run analytics, advertising, or tracking tools in the App</Text>
+        <Text style={styles.bullet}>• If you choose to share app analytics with developers in your iPhone settings, Apple may give us anonymous crash and performance reports</Text>
 
         <Text style={styles.section}>2. How We Use Your Information</Text>
         <Text style={styles.body}>We use the information we collect to:</Text>
@@ -43,16 +42,16 @@ export default function PrivacyPolicyScreen({ onBack }) {
         <Text style={styles.bullet}>• Track maintenance schedules across multiple vehicles</Text>
         <Text style={styles.bullet}>• Suggest relevant DIY repair videos via YouTube</Text>
         <Text style={styles.bullet}>• Authenticate your identity and secure your account</Text>
-        <Text style={styles.bullet}>• Improve the accuracy and performance of the App</Text>
+        <Text style={styles.bullet}>• Keep the App working reliably</Text>
         <Text style={styles.bullet}>• Respond to your support requests and inquiries</Text>
         <Text style={styles.bullet}>• Comply with legal obligations</Text>
 
         <Text style={styles.section}>3. How We Store Your Information</Text>
         <Text style={styles.body}>Your data is stored in the following ways:</Text>
         <Text style={styles.subheader}>Local Device Storage</Text>
-        <Text style={styles.body}>Vehicle profiles, repair history, maintenance schedules, and saved diagnoses are stored locally on your device using encrypted secure storage. This data remains on your device and is not automatically uploaded to our servers.</Text>
+        <Text style={styles.body}>Vehicle profiles, repair history, maintenance schedules, mileage, and saved quote analyses are stored on your device using encrypted secure storage. This data remains on your device and is not uploaded to our servers.</Text>
         <Text style={styles.subheader}>Secure Cloud Storage</Text>
-        <Text style={styles.body}>Account credentials (email and encrypted password) are stored securely on Supabase servers with industry-standard encryption. Passwords are hashed and salted — we never store your plain text password.</Text>
+        <Text style={styles.body}>Your account (email and encrypted password) and your saved diagnoses, including their conversations, are stored securely with our database provider, Supabase. Passwords are hashed and salted — we never store your plain text password. Access rules ensure each user can read and change only their own saved diagnoses.</Text>
         <Text style={styles.subheader}>Diagnostic Processing</Text>
         <Text style={styles.body}>When you submit a diagnosis, your query and any images are transmitted securely to our backend server and then to Anthropic's Claude AI for processing. Our backend server does not keep your conversations. They are saved to your account history, which is stored with our database provider (Supabase), so you can reopen them. They stay there until you delete them or delete your account.</Text>
 
@@ -83,7 +82,7 @@ export default function PrivacyPolicyScreen({ onBack }) {
         <Text style={styles.bullet}>• Encrypted local storage on your device using Expo SecureStore</Text>
         <Text style={styles.bullet}>• Bcrypt password hashing — your password is never stored in plain text</Text>
         <Text style={styles.bullet}>• Secure authentication tokens with expiration</Text>
-        <Text style={styles.bullet}>• Regular security reviews of our backend infrastructure</Text>
+        <Text style={styles.bullet}>• Access rules on our database so each user can only reach their own saved diagnoses</Text>
         <Text style={styles.body}>However, no method of transmission over the internet or electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your information, we cannot guarantee absolute security.</Text>
 
         <Text style={styles.section}>7. Your Privacy Rights</Text>
@@ -110,7 +109,7 @@ export default function PrivacyPolicyScreen({ onBack }) {
         <Text style={styles.body}>Engine Eye is operated in the United States. If you are accessing the App from outside the United States, your information may be transferred to, stored, and processed in the United States. By using Engine Eye, you consent to the transfer of your information to the United States, where data protection laws may differ from those in your country.</Text>
 
         <Text style={styles.section}>12. Cookies and Tracking</Text>
-        <Text style={styles.body}>Engine Eye is a mobile application and does not use browser cookies. We may use anonymized analytics to understand app usage patterns and improve performance. We do not use cross-app tracking or share your device advertising ID with third parties for advertising purposes.</Text>
+        <Text style={styles.body}>Engine Eye is a mobile application and does not use browser cookies. We do not use analytics or advertising tools in the App. We do not use cross-app tracking or share your device advertising ID with third parties for advertising purposes.</Text>
 
         <Text style={styles.section}>13. Changes to This Privacy Policy</Text>
         <Text style={styles.body}>We may update this Privacy Policy from time to time to reflect changes in our practices or for legal, operational, or regulatory reasons. We will notify you of material changes by updating the date at the top of this policy. Your continued use of Engine Eye after any changes constitutes your acceptance of the updated policy. We encourage you to review this policy periodically.</Text>

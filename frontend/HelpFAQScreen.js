@@ -36,7 +36,7 @@ const FAQS = [
   },
   {
     question: "Is my data private and secure?",
-    answer: "Yes. Your vehicle data and repair history are stored locally on your device using encrypted storage. Account credentials are secured with Supabase using bcrypt password hashing. We never sell your data. See our Privacy Policy for full details."
+    answer: "Yes. Your vehicle data and repair history are stored on your device using encrypted storage. Your saved diagnoses are kept in your account, and only you can read them. You can delete your account and all saved diagnoses in Settings. Account credentials are secured with Supabase using bcrypt password hashing. We never sell your data. See our Privacy Policy for full details."
   },
   {
     question: "How do I find auto repair shops nearby?",
