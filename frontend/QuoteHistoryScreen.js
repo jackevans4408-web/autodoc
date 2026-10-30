@@ -531,7 +531,7 @@ return (
                     const data = maintenance[`${item.key}_${carId}`];
                     return (
                       <TouchableOpacity key={carId} style={styles.maintCarRow} onPress={() => { setEditingMaintenance({ ...item, carId }); setMaintData({ lastMileage: data?.lastMileage || "", interval: data?.interval || item.defaultInterval.toString() }); setShowMaintenanceSetup(true); }}>
-                        <Text style={styles.maintCarName} numberOfLines={1}>{c.year} {c.make}</Text>
+                        <Text style={styles.maintCarName} numberOfLines={1}>{carLabel(c)}</Text>
                         {milesRemaining !== null ? (
                           <View style={[styles.maintBadge, milesRemaining < 0 ? styles.badgeRed : milesRemaining < 500 ? styles.badgeYellow : styles.badgeGreen]}>
                             <Text style={styles.maintBadgeText}>
