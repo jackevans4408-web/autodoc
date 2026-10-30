@@ -19,6 +19,7 @@ import { formatUsageLine, quotaMessage } from "./plans";
 import PaywallScreen from "./PaywallScreen";
 import ConsentScreen from "./ConsentScreen";
 import { afterDeletingVehicle, carLabel, needsVehicleScreen } from "./vehicleUtils";
+import { cleanLine } from "./diagnosisText";
 import DiagnosingIndicator from "./DiagnosingIndicator";
 import { intervalTrigger, safeSchedule, REPAIR_FOLLOW_UP_SECONDS, MAINTENANCE_REMINDER_SECONDS } from "./reminders";
 import DoneAccessory, { DONE_ROOT } from "./DoneAccessory";
@@ -36,7 +37,7 @@ function FormattedDiagnosis({ text }) {
 
   while (i < lines.length) {
     const line = lines[i];
-    const cleaned = line.replace(/##?\s*/g, '').trim();
+    const cleaned = cleanLine(line);
     if (!cleaned) { i++; continue; }
 
     if (cleaned.startsWith('💰')) inCostSection = true;
