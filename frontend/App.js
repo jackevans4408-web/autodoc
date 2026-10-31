@@ -171,6 +171,7 @@ export default function App() {
   const [dismissedRecalls, setDismissedRecalls] = useState([]);
   const [recallsCollapsed, setRecallsCollapsed] = useState(false);
   const [vehicleSkipped, setVehicleSkipped] = useState(false);
+  const [keyboardShown, setKeyboardShown] = useState(false);
   const [obdCode, setObdCode] = useState("");
   const [hasConsent, setHasConsent] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
@@ -260,6 +261,13 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
       refreshUsage();
     }
   }, [session?.user_id]);
+
+  // Extra room under the chat box lifts it clear of the home indicator, but only while the keyboard is down.
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => setKeyboardShown(true));
+    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setKeyboardShown(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   // The AI consent belongs to the signed-in user; load it whenever the user changes.
   useEffect(() => {
@@ -838,7 +846,7 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
           <Text style={styles.usageUpgrade}>Upgrade</Text>
         </TouchableOpacity>
       )}
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, !keyboardShown && styles.inputRowRaised]}>
         <TouchableOpacity
           style={[styles.plusBtn, showMediaOptions && styles.plusBtnActive]}
           onPress={() => setShowMediaOptions(!showMediaOptions)}
@@ -1237,6 +1245,7 @@ const styles = StyleSheet.create({
   usageBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#161618", paddingHorizontal: 16, paddingTop: 8 },
   usageText: { color: "#888", fontSize: 12 },
   usageUpgrade: { color: "#f5a623", fontSize: 12, fontWeight: "600" },
+  inputRowRaised: { paddingBottom: 30 },
   inputRow: { flexDirection: "row", padding: 12, paddingBottom: 8, backgroundColor: "#161618", borderTopWidth: 1, borderTopColor: "#2e2e33", alignItems: "center", gap: 8 },
   plusBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#1e1e21", borderWidth: 1, borderColor: "#2e2e33", justifyContent: "center", alignItems: "center" },
   plusBtnActive: { backgroundColor: "#2e2e33", borderColor: "#f5a623" },
