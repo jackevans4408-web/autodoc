@@ -144,7 +144,7 @@ export default function CarProfileScreen({ onSave, onCancel, onSkip, onSignOut, 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <DoneAccessory id={DONE_ROOT} />
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       <View style={styles.header}>
         {onCancel && (
           <TouchableOpacity onPress={onCancel} style={styles.cancelBtn}>
@@ -208,7 +208,7 @@ export default function CarProfileScreen({ onSave, onCancel, onSkip, onSignOut, 
         />
 
         <Text style={styles.label}>Make</Text>
-        <TouchableOpacity style={styles.dropdown} onPress={() => setShowMakePicker(true)}>
+        <TouchableOpacity style={styles.dropdown} onPress={() => { Keyboard.dismiss(); setShowMakePicker(true); }}>
           <Text style={make ? styles.dropdownSelected : styles.dropdownPlaceholder}>
             {make || "Select your car make..."}
           </Text>
@@ -221,7 +221,7 @@ export default function CarProfileScreen({ onSave, onCancel, onSkip, onSignOut, 
         {modelOptions.length > 0 ? (
           <TouchableOpacity
             style={[styles.dropdown, fetchingModels && styles.dropdownDisabled]}
-            onPress={() => !fetchingModels && setShowModelPicker(true)}
+            onPress={() => { Keyboard.dismiss(); if (!fetchingModels) setShowModelPicker(true); }}
           >
             {fetchingModels ? (
               <ActivityIndicator size="small" color="#888" />
