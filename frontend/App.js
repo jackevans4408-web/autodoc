@@ -20,6 +20,7 @@ import PaywallScreen from "./PaywallScreen";
 import ConsentScreen from "./ConsentScreen";
 import { afterDeletingVehicle, carLabel, needsVehicleScreen } from "./vehicleUtils";
 import { cleanLine } from "./diagnosisText";
+import { splitStep, isDiagnoseHeader } from "./diagnosisLayout";
 import DiagnosingIndicator from "./DiagnosingIndicator";
 import Tutorial from "./Tutorial";
 import { intervalTrigger, safeSchedule, REPAIR_FOLLOW_UP_SECONDS, MAINTENANCE_REMINDER_SECONDS } from "./reminders";
@@ -33,6 +34,7 @@ import { makeConsent, parseConsent, hasValidConsent } from "./consent";
 function FormattedDiagnosis({ text }) {
   const lines = text.split('\n').filter(line => line.trim());
   let inCostSection = false;
+  let inDiagnoseSection = false;
   const elements = [];
   let i = 0;
 
@@ -53,6 +55,9 @@ function FormattedDiagnosis({ text }) {
       cleaned.startsWith('💰') || cleaned.startsWith('⚠️') ||
       cleaned.startsWith('🛠') || cleaned.startsWith('🔍') ||
       cleaned.startsWith('🚨') || cleaned.startsWith('🔴');
+    if (isDiagnoseHeader(cleaned)) inDiagnoseSection = true;
+    else if (isSectionHeader) inDiagnoseSection = false;
+
     const isBullet = cleaned.startsWith('•') || cleaned.startsWith('-');
     const isStep = /^Step \d+:/i.test(cleaned);
     const isNumbered = /^\d+\./.test(cleaned);
@@ -108,9 +113,28 @@ function FormattedDiagnosis({ text }) {
     }
 
     if (isStep) {
+      const parts = splitStep(cleaned);
       elements.push(
         <View key={i} style={styles.stepRow}>
-          <Text style={styles.stepText}>{cleaned}</Text>
+          {parts ? (
+            <>
+              <Text style={styles.stepLabel}>{parts.label}</Text>
+              <Text style={styles.stepBody}>{parts.body}</Text>
+            </>
+          ) : (
+            <Text style={styles.stepBody}>{cleaned}</Text>
+          )}
+        </View>
+      );
+      i++; continue;
+    }
+
+    // Inside "how to diagnose it yourself", a line that is not a step names the cause the steps below it are checking.
+    if (inDiagnoseSection && !isSectionHeader && !isBullet) {
+      elements.push(
+        <View key={i} style={styles.causeHeadingRow}>
+          <View style={styles.causeAccent} />
+          <Text style={styles.causeHeading}>{cleaned}</Text>
         </View>
       );
       i++; continue;
@@ -1252,8 +1276,13 @@ const styles = StyleSheet.create({
   bulletRow: { flexDirection: "row", marginBottom: 4, paddingRight: 8 },
   bulletSymbol: { color: "#e8e6e0", fontSize: 14, marginRight: 6, lineHeight: 22 },
   bulletContent: { color: "#e8e6e0", fontSize: 14, lineHeight: 22, flex: 1 },
-  stepRow: { marginBottom: 4 },
+  stepRow: { flexDirection: "row", marginLeft: 14, marginBottom: 6, paddingLeft: 10, borderLeftWidth: 1, borderLeftColor: "#2e2e33" },
   stepText: { color: "#e8e6e0", fontSize: 14, lineHeight: 22 },
+  causeHeadingRow: { flexDirection: "row", alignItems: "center", marginTop: 16, marginBottom: 6 },
+  causeAccent: { width: 4, alignSelf: "stretch", backgroundColor: "#f5a623", borderRadius: 2, marginRight: 10 },
+  causeHeading: { flex: 1, color: "#ffffff", fontSize: 16, fontWeight: "700", lineHeight: 22 },
+  stepLabel: { color: "#f5a623", fontSize: 12, fontWeight: "700", width: 54, paddingTop: 3, textTransform: "uppercase" },
+  stepBody: { flex: 1, color: "#bdbcb6", fontSize: 14, lineHeight: 21 },
   numberedText: { color: "#e8e6e0", fontSize: 14, lineHeight: 22, marginBottom: 4, fontWeight: "500" },
   costHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: "#f5a62344", marginBottom: 4 },
   costHeaderCause: { color: "#888", fontSize: 11, fontWeight: "600", textTransform: "uppercase", flex: 1 },
