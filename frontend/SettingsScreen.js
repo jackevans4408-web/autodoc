@@ -4,7 +4,7 @@ import PrivacyPolicyScreen from "./PrivacyPolicyScreen";
 import TermsOfServiceScreen from "./TermsOfServiceScreen";
 import HelpFAQScreen from "./HelpFAQScreen";
 
-export default function SettingsScreen({ car, session, usage, showPlan = false, appStoreId = "", onDeleteAccount, onWithdrawConsent, onShowPaywall, onBack, onSignOut, onShowQuoteHistory }) {
+export default function SettingsScreen({ car, session, usage, showPlan = false, appStoreId = "", onDeleteAccount, onWithdrawConsent, onReplayTutorial, onShowPaywall, onBack, onSignOut, onShowQuoteHistory }) {
   const [recalls, setRecalls] = useState(null);
   const [loadingRecalls, setLoadingRecalls] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -131,6 +131,11 @@ const [showHelp, setShowHelp] = useState(false);
 
         <Text style={styles.sectionLabel}>Support</Text>
         <View style={styles.section}>
+          <TouchableOpacity style={styles.settingRow} onPress={onReplayTutorial}>
+            <Text style={styles.settingLabel}>🎓 Replay the tour</Text>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
           <TouchableOpacity style={styles.settingRow} onPress={() => setShowHelp(true)}>
             <Text style={styles.settingLabel}>❓ Help & FAQ</Text>
             <Text style={styles.settingArrow}>→</Text>
