@@ -21,6 +21,7 @@ import ConsentScreen from "./ConsentScreen";
 import { afterDeletingVehicle, carLabel, needsVehicleScreen } from "./vehicleUtils";
 import { cleanLine } from "./diagnosisText";
 import DiagnosingIndicator from "./DiagnosingIndicator";
+import Tutorial from "./Tutorial";
 import { intervalTrigger, safeSchedule, REPAIR_FOLLOW_UP_SECONDS, MAINTENANCE_REMINDER_SECONDS } from "./reminders";
 import DoneAccessory, { DONE_ROOT } from "./DoneAccessory";
 import { prepareImage } from "./prepareImage";
@@ -172,6 +173,15 @@ export default function App() {
   const [recallsCollapsed, setRecallsCollapsed] = useState(false);
   const [vehicleSkipped, setVehicleSkipped] = useState(false);
   const [keyboardShown, setKeyboardShown] = useState(false);
+  const [tutorialSeen, setTutorialSeen] = useState(null); // null until the saved value has been read
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const tutorialTargets = {
+    input: useRef(null),
+    vehicle: useRef(null),
+    quotes: useRef(null),
+    shops: useRef(null),
+    menu: useRef(null),
+  };
   const [obdCode, setObdCode] = useState("");
   const [hasConsent, setHasConsent] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
@@ -262,6 +272,25 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
     }
   }, [session?.user_id]);
 
+  // The tour opens by itself the first time someone reaches the chat screen, and can be replayed from Settings.
+  const onChatScreen = Boolean(session && consentChecked && hasConsent && !needsVehicleScreen({ car, showAddCar, skipped: vehicleSkipped }) && !showSettings && !showQuoteHistory && !showPaywall);
+  useEffect(() => {
+    if (tutorialSeen !== false || !onChatScreen) return undefined;
+    const timer = setTimeout(() => setTutorialOpen(true), 900);
+    return () => clearTimeout(timer);
+  }, [tutorialSeen, onChatScreen]);
+
+  const finishTutorial = async () => {
+    setTutorialOpen(false);
+    setTutorialSeen(true);
+    try { await SecureStore.setItemAsync("tutorialSeen", "true"); } catch (e) { /* the tour may show again next launch */ }
+  };
+
+  const replayTutorial = () => {
+    setShowSettings(false);
+    setTimeout(() => setTutorialOpen(true), 500);
+  };
+
   // Extra room under the chat box lifts it clear of the home indicator, but only while the keyboard is down.
   useEffect(() => {
     const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => setKeyboardShown(true));
@@ -342,6 +371,7 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
       if (savedDismissed) setDismissedRecalls(JSON.parse(savedDismissed));
       setRecallsCollapsed(parseCollapsed(await SecureStore.getItemAsync("recallsCollapsed")));
       setVehicleSkipped((await SecureStore.getItemAsync("vehicleSkipped")) === "true");
+      setTutorialSeen((await SecureStore.getItemAsync("tutorialSeen")) === "true");
       if (savedSession) {
         const parsedSession = JSON.parse(savedSession);
         if (isUsableSession(parsedSession)) {
@@ -697,6 +727,7 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
       appStoreId={APP_STORE_ID}
       onDeleteAccount={deleteMyAccount}
       onWithdrawConsent={withdrawAIConsent}
+      onReplayTutorial={replayTutorial}
       onShowPaywall={() => { setShowSettings(false); openPaywall(); }}
       onBack={() => setShowSettings(false)}
       onSignOut={signOut}
@@ -740,8 +771,9 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
   return (
     <KeyboardAvoidingView style={styles.container} behavior="padding">
       <DoneAccessory id={DONE_ROOT} />
+      <Tutorial visible={tutorialOpen} targets={tutorialTargets} onFinish={finishTutorial} />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.menuBtn} onPress={openMenuPanel}>
+        <TouchableOpacity ref={tutorialTargets.menu} collapsable={false} style={styles.menuBtn} onPress={openMenuPanel}>
           <View style={styles.menuLine} />
           <View style={styles.menuLine} />
           <View style={styles.menuLine} />
@@ -749,21 +781,21 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
         <View style={styles.headerCenter}>
           <Text style={styles.headerText}>Engine Eye</Text>
           {car ? (
-            <TouchableOpacity style={styles.carSelector} onPress={() => setShowCarSelector(true)}>
+            <TouchableOpacity ref={tutorialTargets.vehicle} collapsable={false} style={styles.carSelector} onPress={() => setShowCarSelector(true)}>
               <Text style={styles.carSelectorText} numberOfLines={1}>{carLabel(car)}</Text>
               <Text style={styles.carSelectorArrow}>▼</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={styles.carSelector} onPress={() => setShowAddCar(true)}>
+            <TouchableOpacity ref={tutorialTargets.vehicle} collapsable={false} style={styles.carSelector} onPress={() => setShowAddCar(true)}>
               <Text style={styles.carSelectorText}>+ Add vehicle</Text>
             </TouchableOpacity>
           )}
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity onPress={() => setShowQuoteHistory(true)}>
+          <TouchableOpacity ref={tutorialTargets.quotes} collapsable={false} onPress={() => setShowQuoteHistory(true)}>
             <Text style={styles.quoteHistoryBtn}>📄 Quotes</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.shopsBtn} onPress={() => Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me")}>
+          <TouchableOpacity ref={tutorialTargets.shops} collapsable={false} style={styles.shopsBtn} onPress={() => Linking.openURL("maps://maps.apple.com/?q=auto+repair+shop+near+me")}>
             <Text style={styles.shopsBtnText}>🔧 Shops</Text>
           </TouchableOpacity>
         </View>
@@ -846,7 +878,7 @@ const scheduleMaintenanceReminder = (itemLabel, lastMileage, interval, carName) 
           <Text style={styles.usageUpgrade}>Upgrade</Text>
         </TouchableOpacity>
       )}
-      <View style={[styles.inputRow, !keyboardShown && styles.inputRowRaised]}>
+      <View ref={tutorialTargets.input} collapsable={false} style={[styles.inputRow, !keyboardShown && styles.inputRowRaised]}>
         <TouchableOpacity
           style={[styles.plusBtn, showMediaOptions && styles.plusBtnActive]}
           onPress={() => setShowMediaOptions(!showMediaOptions)}

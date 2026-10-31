@@ -20,4 +20,5 @@ export const LOCAL_DATA_KEYS = [
   "carMileages",
   "aiConsent",
   "vehicleSkipped",
+  "tutorialSeen",
 ];
