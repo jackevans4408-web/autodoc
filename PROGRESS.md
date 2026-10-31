@@ -47,3 +47,8 @@ Ideas not started: GitHub Actions CI (run both test suites on PRs; add after the
 - Audit found: no in-app account deletion, no permission screen before sending data to the AI, an unfinished-looking paywall, a Rate button pointing at the old app, and a privacy policy that misdescribed storage. Fixed on `feature/app-review-readiness`; see `docs/APP_REVIEW_CHECKLIST.md` for what still needs doing before submitting.
 - Subscriptions are hidden (`EXPO_PUBLIC_SUBSCRIPTIONS_ENABLED`) for version 1; the backend subscription pieces are deployed and verified but unused. Plan: ship v1, then add subscriptions in an update.
 - Paid Applications agreement in App Store Connect is not active yet (owner action); not needed for v1 if it has no subscriptions.
+
+## 2026-10-31 (submitted)
+- Version 1.0 (App Store build 7, the sixth upload) submitted to App Review with five screenshots, demo account, manual release. Free, no subscriptions, EU off (non-trader).
+- Face ID sign-in effectively never shows (the button needs a saved login, which sign-out deletes). Removed from the listing; fix in v1.1 with a Settings switch.
+- After approval: turn on the EU and declare trader status; build subscriptions v1.1 (see docs/SUBSCRIPTIONS.md); set EXPO_PUBLIC_APP_STORE_ID=6827331999.
