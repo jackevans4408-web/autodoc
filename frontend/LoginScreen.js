@@ -1,9 +1,10 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useState, useEffect } from "react";
-import { signIn, signUp } from "./supabase";
+import { signIn, signUp, resendVerification } from "./supabase";
 import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
 import { isUsableSession } from "./api";
+import { isUnverifiedError, verifyMessage, tickCooldown, RESEND_COOLDOWN_SECONDS } from "./verification";
 
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -12,10 +13,20 @@ export default function LoginScreen({ onLogin }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState("");
   const [faceIDAvailable, setFaceIDAvailable] = useState(false);
+  // Set to the address we asked the person to verify; shows the "check your email" panel instead of the form.
+  const [pendingEmail, setPendingEmail] = useState(null);
+  const [cooldown, setCooldown] = useState(0);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     checkFaceID();
   }, []);
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown(tickCooldown), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   const checkFaceID = async () => {
     try {
@@ -38,6 +49,12 @@ export default function LoginScreen({ onLogin }) {
         const signedIn = await signIn(email, password);
         if (signedIn.success && isUsableSession(signedIn)) {
           result = signedIn;
+        } else if (isUnverifiedError(signedIn)) {
+          // The account exists but its email is not verified yet; the verification email was sent by sign-up.
+          setPendingEmail(email.trim());
+          setCooldown(RESEND_COOLDOWN_SECONDS);
+          setLoading(false);
+          return;
         } else {
           setIsSignUp(false);
           setError("Account created. If you were sent a confirmation email, confirm it, then sign in.");
@@ -47,6 +64,8 @@ export default function LoginScreen({ onLogin }) {
       }
       if (result.success) {
         onLogin(result);
+      } else if (isUnverifiedError(result)) {
+        setPendingEmail(email.trim());
       } else {
         setError(result.error || "Something went wrong");
       }
@@ -54,6 +73,43 @@ export default function LoginScreen({ onLogin }) {
       setError(e.message);
     }
     setLoading(false);
+  };
+
+  const handleResend = async () => {
+    setNotice("");
+    setError("");
+    const ok = await resendVerification(pendingEmail);
+    if (ok) {
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+      setNotice("Sent. Check your inbox and spam folder.");
+    } else {
+      setError("Could not send the email. Check your connection and try again.");
+    }
+  };
+
+  const handleVerified = async () => {
+    setLoading(true);
+    setNotice("");
+    setError("");
+    try {
+      const result = await signIn(pendingEmail, password);
+      if (result.success && isUsableSession(result)) {
+        onLogin(result);
+        return;
+      }
+      setError(isUnverifiedError(result) ? "Your email is not verified yet. Open the link in the email we sent, then try again." : result.error || "Something went wrong");
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  };
+
+  const backToSignIn = () => {
+    setPendingEmail(null);
+    setIsSignUp(false);
+    setCooldown(0);
+    setNotice("");
+    setError("");
   };
 
   const handleFaceID = async () => {
@@ -94,6 +150,27 @@ export default function LoginScreen({ onLogin }) {
           <Text style={styles.logo}>Engine Eye</Text>
           <Text style={styles.tagline}>AI Car Diagnostics</Text>
         </View>
+        {pendingEmail ? (
+          <View style={styles.form}>
+            <Text style={styles.title}>{verifyMessage(pendingEmail, cooldown).title}</Text>
+            <Text style={styles.verifyBody}>{verifyMessage(pendingEmail, cooldown).body}</Text>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+            <TouchableOpacity style={styles.btn} onPress={handleVerified} disabled={loading}>
+              {loading ? <ActivityIndicator color="#0d0d0e" /> : <Text style={styles.btnText}>I've verified my email</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.faceIdBtn, !verifyMessage(pendingEmail, cooldown).canResend && styles.btnDisabled]}
+              onPress={handleResend}
+              disabled={!verifyMessage(pendingEmail, cooldown).canResend}
+            >
+              <Text style={styles.faceIdText}>{verifyMessage(pendingEmail, cooldown).resendLabel}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={backToSignIn}>
+              <Text style={styles.switchText}>Back to sign in</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
         <View style={styles.form}>
           <Text style={styles.title}>{isSignUp ? "Create Account" : "Welcome Back"}</Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -136,6 +213,7 @@ export default function LoginScreen({ onLogin }) {
             </Text>
           </TouchableOpacity>
         </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -155,5 +233,8 @@ const styles = StyleSheet.create({
   btnText: { color: "#0d0d0e", fontWeight: "bold", fontSize: 16 },
   faceIdBtn: { backgroundColor: "#1e1e21", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 12, borderWidth: 1, borderColor: "#2e2e33" },
   faceIdText: { color: "#f5a623", fontSize: 14, fontWeight: "600" },
+  verifyBody: { color: "#bdbcb6", fontSize: 14, lineHeight: 21, marginBottom: 16 },
+  notice: { color: "#4caf7d", fontSize: 13, marginBottom: 12 },
+  btnDisabled: { opacity: 0.5 },
   switchText: { color: "#888", textAlign: "center", marginTop: 16, fontSize: 13 },
 });
