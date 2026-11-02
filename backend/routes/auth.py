@@ -36,7 +36,12 @@ def signin(request: AuthRequest):
             "refresh_token": response.session.refresh_token
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        message = str(e)
+        result = {"success": False, "error": message}
+        # Supabase refuses sign-in until the emailed link is opened; flag it so the app can show the "check your email" screen.
+        if "email not confirmed" in message.lower():
+            result["code"] = "email_not_confirmed"
+        return result
 
 @router.post("/auth/signup", dependencies=[Depends(auth_limit)])
 def signup(request: AuthRequest):
@@ -55,6 +60,8 @@ def signup(request: AuthRequest):
         if session:
             result["token"] = session.access_token
             result["refresh_token"] = session.refresh_token
+        else:
+            result["needs_verification"] = True
         return result
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -62,6 +69,18 @@ def signup(request: AuthRequest):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+class ResendRequest(BaseModel):
+    email: str
+
+@router.post("/auth/resend", dependencies=[Depends(auth_limit)])
+def resend(request: ResendRequest):
+    """Send the sign-up verification email again. Always answers success so the endpoint cannot be used to find out which emails have accounts."""
+    try:
+        supabase.auth.resend({"type": "signup", "email": request.email})
+    except Exception as e:
+        print(f"Resend verification failed: {type(e).__name__}")
+    return {"success": True}
 
 @router.post("/auth/refresh", dependencies=[Depends(auth_limit)])
 def refresh(request: RefreshRequest):

@@ -22,6 +22,20 @@ export const signUp = async (email, password) => {
   return response.json();
 };
 
+// Sends the sign-up verification email again. The backend always answers success so it cannot be used to probe for accounts.
+export const resendVerification = async (email) => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/resend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    return response.ok;
+  } catch (e) {
+    return false;
+  }
+};
+
 // The public anon key only identifies the project. Row Level Security on the `diagnoses` table decides what a
 // request may touch, based on the signed-in user's access token sent in the Authorization header.
 const rest = async (path, { method = "GET", body, prefer } = {}, session, { onSession, fetchImpl = fetch } = {}) => {
