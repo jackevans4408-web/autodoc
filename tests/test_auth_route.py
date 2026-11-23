@@ -24,7 +24,7 @@ def test_signup_success(client, monkeypatch):
     user = SimpleNamespace(id="u2", email="n@b.com")
     monkeypatch.setattr(auth.supabase.auth, "sign_up", lambda creds: SimpleNamespace(user=user, session=None))
     r = client.post("/auth/signup", json={"email": "n@b.com", "password": "pw"})
-    assert r.json() == {"success": True, "user_id": "u2", "email": "n@b.com"}
+    assert r.json() == {"success": True, "user_id": "u2", "email": "n@b.com", "needs_verification": True}
 
 
 def test_signup_returns_tokens_when_supabase_issues_a_session(client, monkeypatch):
@@ -33,6 +33,39 @@ def test_signup_returns_tokens_when_supabase_issues_a_session(client, monkeypatc
     monkeypatch.setattr(auth.supabase.auth, "sign_up", lambda creds: SimpleNamespace(user=user, session=session))
     r = client.post("/auth/signup", json={"email": "s@b.com", "password": "pw"})
     assert r.json() == {"success": True, "user_id": "u3", "email": "s@b.com", "token": "tok", "refresh_token": "ref"}
+
+
+def test_signin_flags_unverified_email(client, monkeypatch):
+    def boom(creds):
+        raise Exception("Email not confirmed")
+
+    monkeypatch.setattr(auth.supabase.auth, "sign_in_with_password", boom)
+    r = client.post("/auth/signin", json={"email": "a@b.com", "password": "pw"})
+    assert r.json() == {"success": False, "error": "Email not confirmed", "code": "email_not_confirmed"}
+
+
+def test_resend_asks_supabase_to_send_the_signup_email(client, monkeypatch):
+    sent = []
+    monkeypatch.setattr(auth.supabase.auth, "resend", lambda creds: sent.append(creds))
+    r = client.post("/auth/resend", json={"email": "n@b.com"})
+    assert r.json() == {"success": True}
+    assert sent == [{"type": "signup", "email": "n@b.com"}]
+
+
+def test_resend_never_reveals_whether_an_account_exists(client, monkeypatch):
+    def boom(creds):
+        raise Exception("User not found")
+
+    monkeypatch.setattr(auth.supabase.auth, "resend", boom)
+    assert client.post("/auth/resend", json={"email": "ghost@b.com"}).json() == {"success": True}
+
+
+def test_resend_is_rate_limited(client, monkeypatch):
+    monkeypatch.setattr(auth.supabase.auth, "resend", lambda creds: None)
+    limit = auth.auth_limit.limiter.limit
+    for _ in range(limit):
+        assert client.post("/auth/resend", json={"email": "a@b.com"}).status_code == 200
+    assert client.post("/auth/resend", json={"email": "a@b.com"}).status_code == 429
 
 
 def test_auth_is_rate_limited(client, monkeypatch):
