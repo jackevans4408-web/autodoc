@@ -11,7 +11,7 @@
       "bundleIdentifier": "com.jackevans.engineeye",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSFaceIDUsageDescription": "Use Face ID to sign in to Engine Eye quickly and securely."
+        "NSFaceIDUsageDescription": "Engine Eye uses Face ID so you can unlock your saved sign-in instead of typing your password. For example, tap Sign in with Face ID on the sign-in screen to get back to your saved diagnoses."
       }
     },
     "android": {
@@ -40,6 +40,14 @@
           "icon": "./assets/icon.png",
           "color": "#f5a623",
           "sounds": []
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Engine Eye uses your camera so you can take a photo of a dashboard warning light, a damaged part, or a printed repair estimate. The photo is analyzed by AI only after you agree on the permission screen. For example, photograph your check engine light to learn what it means.",
+          "photosPermission": "Engine Eye reads only the photos you choose from your library, such as a screenshot of a repair quote or a picture of a damaged part, so AI can analyze them. For example, pick a photo of your mechanic's estimate to see which items look necessary or overpriced.",
+          "microphonePermission": false
         }
       ],
       "expo-local-authentication",
